@@ -30,6 +30,15 @@ export const accountSchema = z.object({
     .optional(),
 });
 
+export const accountPatchSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  type: z.enum(["checking", "savings", "credit", "investment"]).optional(),
+  color: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/)
+    .optional(),
+});
+
 export const budgetSchema = z.object({
   categoryId: z.number().int().positive(),
   amount: z.number().positive().max(999_999_999),

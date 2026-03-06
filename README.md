@@ -13,10 +13,10 @@ A personal finance tracker that helps you understand where your money goes — b
 
 FinanceTrack gives you a calm, clutter-free view of your personal finances:
 
-- **Dashboard** — monthly income vs. expenses chart, spending breakdown by category, recent transactions, and account balances at a glance
-- **Transactions** — log income and expenses, filter by type or category, search by description, delete entries
-- **Budgets** — set monthly spending limits per category with visual progress bars and over-budget alerts
-- **Accounts** — manage multiple accounts (checking, savings, credit cards, investments) and track your net worth
+- **Dashboard** — monthly income vs. expenses chart with trend % vs last month, spending breakdown by category, recent transactions, account balances, and skeleton loading states
+- **Transactions** — log, edit, and delete income and expenses; filter by type, category, or account; search by description; deep-linkable from Accounts page
+- **Budgets** — set monthly spending limits per category; navigate between past and current months; delete individual budgets; overall status summary (on track / warning / over); visual progress bars with colour-coded alerts
+- **Accounts** — add and manage accounts manually; edit or delete accounts; net worth with assets vs. liabilities breakdown; "View transactions" link per account
 
 ---
 
@@ -31,6 +31,7 @@ FinanceTrack gives you a calm, clutter-free view of your personal finances:
 | UI | Tailwind CSS v4 + shadcn/ui |
 | Charts | Recharts |
 | Auth | NextAuth v5 (credentials + JWT) |
+| Toasts | Sonner |
 
 ---
 
@@ -126,10 +127,10 @@ src/
 │   │   ├── auth/         # NextAuth handler
 │   │   ├── register/     # User registration
 │   │   ├── transactions/ # CRUD + balance updates
-│   │   ├── accounts/     # Account management
+│   │   ├── accounts/     # Account management (list, create, edit, delete)
 │   │   ├── categories/   # Category listing
-│   │   ├── budgets/      # Budget tracking
-│   │   └── dashboard/    # Aggregated dashboard data
+│   │   ├── budgets/      # Budget tracking (list, create, delete by ID)
+│   │   └── dashboard/    # Aggregated dashboard data (incl. last-month trend)
 │   ├── auth/             # Sign-in and register pages
 │   ├── dashboard/        # Main dashboard
 │   ├── transactions/     # Transaction list

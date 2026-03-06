@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, AlertTriangle, CheckCircle2 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Plus, AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +14,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -40,19 +51,24 @@ interface Category {
   color: string;
 }
 
+const MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
 export function BudgetsContent() {
+  const now = new Date();
+  const [viewMonth, setViewMonth] = useState(now.getMonth() + 1);
+  const [viewYear, setViewYear] = useState(now.getFullYear());
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState({ categoryId: "", amount: "" });
   const [saving, setSaving] = useState(false);
+  const [deleteId, setDeleteId] = useState<number | null>(null);
 
-  const now = new Date();
-  const month = now.getMonth() + 1;
-  const year = now.getFullYear();
-
-  const fetchBudgets = async () => {
+  const fetchBudgets = async (month = viewMonth, year = viewYear) => {
     setLoading(true);
     try {
       const res = await fetch(`/api/budgets?month=${month}&year=${year}`);
@@ -63,20 +79,35 @@ export function BudgetsContent() {
   };
 
   useEffect(() => {
-    fetchBudgets();
+    fetchBudgets(viewMonth, viewYear);
     fetch("/api/categories")
       .then((r) => r.json())
       .then((cats: Category[]) =>
         setCategories(cats.filter((c) => c.type === "expense"))
       );
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewMonth, viewYear]);
 
-  const totalBudgeted = budgets.reduce(
-    (sum, b) => sum + parseFloat(b.amount),
-    0
-  );
+  const navigateMonth = (delta: number) => {
+    let m = viewMonth + delta;
+    let y = viewYear;
+    if (m > 12) { m = 1; y++; }
+    if (m < 1) { m = 12; y--; }
+    setViewMonth(m);
+    setViewYear(y);
+  };
+
+  const isCurrentMonth = viewMonth === now.getMonth() + 1 && viewYear === now.getFullYear();
+
+  const totalBudgeted = budgets.reduce((sum, b) => sum + parseFloat(b.amount), 0);
   const totalSpent = budgets.reduce((sum, b) => sum + b.spent, 0);
   const overallPct = totalBudgeted > 0 ? (totalSpent / totalBudgeted) * 100 : 0;
+  const overCount = budgets.filter((b) => b.spent > parseFloat(b.amount)).length;
+  const warnCount = budgets.filter((b) => {
+    const pct = parseFloat(b.amount) > 0 ? (b.spent / parseFloat(b.amount)) * 100 : 0;
+    return pct > 80 && pct <= 100;
+  }).length;
+  const okCount = budgets.length - overCount - warnCount;
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,24 +119,35 @@ export function BudgetsContent() {
         body: JSON.stringify({
           categoryId: form.categoryId,
           amount: parseFloat(form.amount),
-          month,
-          year,
+          month: viewMonth,
+          year: viewYear,
         }),
       });
       if (res.ok) {
         setDialogOpen(false);
         setForm({ categoryId: "", amount: "" });
+        toast.success("Budget saved");
         fetchBudgets();
+      } else {
+        const data = await res.json();
+        toast.error(data.error ?? "Failed to save budget");
       }
     } finally {
       setSaving(false);
     }
   };
 
-  const monthName = now.toLocaleDateString("en-US", {
-    month: "long",
-    year: "numeric",
-  });
+  const handleDelete = async () => {
+    if (deleteId === null) return;
+    const res = await fetch(`/api/budgets/${deleteId}`, { method: "DELETE" });
+    setDeleteId(null);
+    if (res.ok) {
+      toast.success("Budget deleted");
+      fetchBudgets();
+    } else {
+      toast.error("Failed to delete budget");
+    }
+  };
 
   return (
     <div className="p-6 space-y-5">
@@ -113,7 +155,24 @@ export function BudgetsContent() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Budgets</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">{monthName}</p>
+          <div className="flex items-center gap-1 mt-1">
+            <button
+              onClick={() => navigateMonth(-1)}
+              className="w-6 h-6 flex items-center justify-center rounded hover:bg-secondary transition-colors text-muted-foreground"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <span className="text-sm text-muted-foreground min-w-[130px] text-center">
+              {MONTH_NAMES[viewMonth - 1]} {viewYear}
+            </span>
+            <button
+              onClick={() => navigateMonth(1)}
+              disabled={isCurrentMonth}
+              className="w-6 h-6 flex items-center justify-center rounded hover:bg-secondary transition-colors text-muted-foreground disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
@@ -124,7 +183,7 @@ export function BudgetsContent() {
           </DialogTrigger>
           <DialogContent className="sm:max-w-sm">
             <DialogHeader>
-              <DialogTitle>New Budget</DialogTitle>
+              <DialogTitle>New Budget — {MONTH_NAMES[viewMonth - 1]} {viewYear}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSave} className="space-y-4 mt-2">
               <div className="space-y-1.5">
@@ -189,11 +248,35 @@ export function BudgetsContent() {
           </div>
           <Progress
             value={Math.min(overallPct, 100)}
-            className={`h-2 ${overallPct > 100 ? "[&>div]:bg-rose-500" : overallPct > 80 ? "[&>div]:bg-amber-500" : "[&>div]:bg-primary"}`}
+            className={`h-2.5 ${overallPct > 100 ? "[&>div]:bg-rose-500" : overallPct > 80 ? "[&>div]:bg-amber-500" : "[&>div]:bg-primary"}`}
           />
-          <p className="text-xs text-muted-foreground mt-2">
-            {formatCurrency(Math.max(0, totalBudgeted - totalSpent))} remaining
-          </p>
+          <div className="flex items-center justify-between mt-3">
+            <p className="text-xs text-muted-foreground">
+              {formatCurrency(Math.max(0, totalBudgeted - totalSpent))} remaining
+            </p>
+            {budgets.length > 0 && (
+              <div className="flex items-center gap-3 text-xs">
+                {okCount > 0 && (
+                  <span className="flex items-center gap-1 text-emerald-600">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+                    {okCount} on track
+                  </span>
+                )}
+                {warnCount > 0 && (
+                  <span className="flex items-center gap-1 text-amber-600">
+                    <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />
+                    {warnCount} warning
+                  </span>
+                )}
+                {overCount > 0 && (
+                  <span className="flex items-center gap-1 text-rose-500">
+                    <span className="w-2 h-2 rounded-full bg-rose-500 inline-block" />
+                    {overCount} over
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
 
@@ -202,8 +285,10 @@ export function BudgetsContent() {
         <div className="text-center py-12 text-muted-foreground text-sm">Loading...</div>
       ) : budgets.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
-          <PiggyBankIcon className="w-12 h-12 mx-auto mb-3 opacity-30" />
-          <p className="font-medium">No budgets yet</p>
+          <div className="w-12 h-12 rounded-2xl bg-secondary flex items-center justify-center mx-auto mb-3">
+            <Plus className="w-6 h-6 opacity-40" />
+          </div>
+          <p className="font-medium">No budgets for this month</p>
           <p className="text-sm mt-1">Add a budget to start tracking your spending</p>
         </div>
       ) : (
@@ -215,14 +300,13 @@ export function BudgetsContent() {
             const warn = pct > 80 && !over;
 
             return (
-              <Card key={budget.id} className="border-border/60 shadow-sm">
+              <Card key={budget.id} className="border-border/60 shadow-sm group">
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3 mb-3">
                     <div
-                      className="w-9 h-9 rounded-xl flex items-center justify-center"
+                      className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
                       style={{
-                        backgroundColor:
-                          (budget.category?.color ?? "#64748b") + "22",
+                        backgroundColor: (budget.category?.color ?? "#64748b") + "22",
                       }}
                     >
                       <span
@@ -240,18 +324,28 @@ export function BudgetsContent() {
                         {formatCurrency(budget.spent)} of {formatCurrency(limit)}
                       </p>
                     </div>
-                    {over ? (
-                      <AlertTriangle className="w-4 h-4 text-rose-500 flex-shrink-0" />
-                    ) : warn ? (
-                      <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />
-                    ) : (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                    )}
+                    <div className="flex items-center gap-1">
+                      {over ? (
+                        <AlertTriangle className="w-4 h-4 text-rose-500 flex-shrink-0" />
+                      ) : warn ? (
+                        <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                      ) : (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-rose-500 transition-all"
+                        onClick={() => setDeleteId(budget.id)}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
                   </div>
 
                   <Progress
                     value={Math.min(pct, 100)}
-                    className={`h-1.5 ${
+                    className={`h-2.5 ${
                       over
                         ? "[&>div]:bg-rose-500"
                         : warn
@@ -284,15 +378,27 @@ export function BudgetsContent() {
           })}
         </div>
       )}
-    </div>
-  );
-}
 
-function PiggyBankIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 15.75V17m-7.5-6.75h.008v.008H8.25v-.008Zm0 3h.008v.008H8.25v-.008Zm0 3h.008v.008H8.25v-.008Zm3-6h.008v.008H11.25v-.008Zm0 3h.008v.008H11.25v-.008Zm0 3h.008v.008H11.25v-.008Zm3-6h.008v.008H14.25v-.008Zm0 3h.008v.008H14.25v-.008Zm0 3h.008v.008H14.25v-.008Zm-7.5-12h.008v.008H6.75v-.008Z" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10.5h15v11.25H4.5V10.5Z" />
-    </svg>
+      {/* Delete confirmation */}
+      <AlertDialog open={deleteId !== null} onOpenChange={(open) => !open && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete budget?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove the budget limit for this category. Your transaction history won&apos;t be affected.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-rose-500 hover:bg-rose-600"
+              onClick={handleDelete}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
   );
 }

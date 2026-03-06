@@ -42,24 +42,25 @@ export function LandingPage() {
       <section className="flex-1 flex flex-col items-center justify-center text-center px-6 pt-24 pb-16">
         <div className="inline-flex items-center gap-2 bg-primary/10 text-primary text-xs font-semibold px-3 py-1.5 rounded-full mb-6 border border-primary/20">
           <Zap className="w-3.5 h-3.5" />
-          Personal finance, made simple
+          Open source · Free forever · Your data stays yours
         </div>
 
         <h1 className="text-5xl sm:text-6xl font-bold tracking-tight max-w-3xl leading-[1.1]">
-          Take control of{" "}
-          <span className="text-primary">your money</span>,{" "}
-          effortlessly
+          Know where every dollar goes —{" "}
+          <span className="text-primary">without paying a subscription</span>{" "}
+          to find out
         </h1>
 
         <p className="mt-6 text-lg text-muted-foreground max-w-xl leading-relaxed">
-          Track income and expenses, set budgets, and visualize your financial
-          health — all in one calm, focused dashboard.
+          FinanceTrack is a free, self-hosted finance app. Set budgets, track
+          every account, and visualize your spending — with zero monthly fees
+          and complete data privacy.
         </p>
 
         <div className="flex items-center gap-3 mt-8">
           <Button asChild size="lg" className="gap-2 px-6">
             <Link href="/auth/register">
-              Start for free
+              Start tracking for free
               <ArrowRight className="w-4 h-4" />
             </Link>
           </Button>
@@ -69,7 +70,7 @@ export function LandingPage() {
         </div>
 
         <p className="mt-4 text-xs text-muted-foreground">
-          No credit card required · Data stays on your server
+          No credit card · No subscription · No data harvesting
         </p>
 
         {/* ── App preview card ── */}
@@ -173,10 +174,10 @@ export function LandingPage() {
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold tracking-tight">
-              Everything you need, nothing you don&apos;t
+              The features Mint charged you for — now free
             </h2>
             <p className="text-muted-foreground mt-3 max-w-lg mx-auto">
-              A focused set of tools to understand your financial picture at a glance.
+              Everything you actually use to stay on top of your money. Nothing you don&apos;t.
             </p>
           </div>
 
@@ -185,26 +186,26 @@ export function LandingPage() {
               {
                 icon: BarChart3,
                 color: "text-primary bg-primary/10",
-                title: "Smart Dashboard",
-                desc: "Income vs expenses over 6 months, spending breakdown by category, and recent activity — all at a glance.",
+                title: "Instant Clarity",
+                desc: "See 6 months of income vs expenses, your spending breakdown by category, and recent transactions — the moment you log in.",
               },
               {
                 icon: Target,
                 color: "text-amber-600 bg-amber-100",
-                title: "Budget Tracking",
-                desc: "Set monthly limits per category. Visual progress bars warn you before you overspend.",
+                title: "Budgets That Work",
+                desc: "Set monthly limits per category. Get warned before you overspend — not after it's too late.",
               },
               {
                 icon: Wallet,
                 color: "text-emerald-600 bg-emerald-100",
-                title: "Multiple Accounts",
-                desc: "Checking, savings, credit cards, investments — track all your accounts and your net worth in one place.",
+                title: "All Accounts, One View",
+                desc: "Checking, savings, credit cards, investments — track every account and your true net worth in one place.",
               },
               {
                 icon: ShieldCheck,
                 color: "text-sky-600 bg-sky-100",
-                title: "Private & Secure",
-                desc: "Your data lives on your own database. Auth-protected, rate-limited, and never shared.",
+                title: "Your Data, Your Server",
+                desc: "Self-hosted means no third party ever sees your finances. Bcrypt passwords, auth-protected routes, and strict per-user isolation.",
               },
             ].map((f) => {
               const Icon = f.icon;
@@ -230,21 +231,21 @@ export function LandingPage() {
         <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
           <div>
             <h2 className="text-3xl font-bold tracking-tight mb-4">
-              Built for clarity, not complexity
+              No learning curve. Just clarity.
             </h2>
             <p className="text-muted-foreground leading-relaxed mb-6">
-              Most finance apps bury you in features. FinanceTrack gives you
-              exactly what you need to stay on top of your money — no learning
-              curve required.
+              Most finance apps bury you in features — then charge $10/month for
+              the privilege. FinanceTrack gives you exactly what you need to stay
+              on top of your money, free forever.
             </p>
             <ul className="space-y-3">
               {[
-                "Add transactions in seconds",
-                "Filter and search your full history",
-                "Per-category monthly budgets",
-                "Area charts for income & expense trends",
-                "Spending breakdown donut chart",
-                "Net worth across all accounts",
+                "Log transactions in seconds — no manual imports",
+                "Instant search across your entire transaction history",
+                "Get warned before you blow your monthly budget",
+                "Spot income & expense trends across 6 months",
+                "See at a glance where your money actually goes",
+                "Track your true net worth across all accounts",
               ].map((item) => (
                 <li key={item} className="flex items-center gap-3 text-sm">
                   <CheckCircle2 className="w-4 h-4 text-primary flex-shrink-0" />
@@ -257,16 +258,16 @@ export function LandingPage() {
           {/* Stats / numbers */}
           <div className="grid grid-cols-2 gap-4">
             {[
-              { value: "100%", label: "Your data, your server", color: "border-primary/30 bg-primary/5" },
-              { value: "< 1s", label: "Dashboard load time", color: "border-emerald-300/40 bg-emerald-50" },
-              { value: "12", label: "Built-in categories", color: "border-amber-300/40 bg-amber-50" },
-              { value: "0", label: "Monthly fees", color: "border-sky-300/40 bg-sky-50" },
+              { value: "Self-hosted", label: "Your server, your rules", color: "border-primary/30 bg-primary/5" },
+              { value: "Open source", label: "Every line auditable", color: "border-emerald-300/40 bg-emerald-50" },
+              { value: "12", label: "Spending categories included", color: "border-amber-300/40 bg-amber-50" },
+              { value: "$0", label: "Forever free", color: "border-sky-300/40 bg-sky-50" },
             ].map((stat) => (
               <div
                 key={stat.label}
                 className={`rounded-2xl border p-5 text-center ${stat.color}`}
               >
-                <p className="text-3xl font-bold tracking-tight">{stat.value}</p>
+                <p className="text-2xl font-bold tracking-tight leading-tight">{stat.value}</p>
                 <p className="text-xs text-muted-foreground mt-1 leading-snug">{stat.label}</p>
               </div>
             ))}
@@ -278,16 +279,16 @@ export function LandingPage() {
       <section className="py-20 px-6 bg-sidebar">
         <div className="max-w-2xl mx-auto text-center">
           <h2 className="text-3xl font-bold tracking-tight text-sidebar-foreground">
-            Ready to understand your finances?
+            Stop guessing where your money goes.
           </h2>
           <p className="mt-3 text-sidebar-foreground/60 leading-relaxed">
-            Create a free account in under a minute. Your starter account and
-            default categories are set up automatically.
+            Set up in under 5 minutes. Your account, spending categories, and
+            demo data are ready the moment you sign up — no configuration needed.
           </p>
           <div className="flex items-center justify-center gap-3 mt-8">
             <Button asChild size="lg" className="gap-2 px-6">
               <Link href="/auth/register">
-                Create free account
+                Start tracking for free
                 <ArrowRight className="w-4 h-4" />
               </Link>
             </Button>

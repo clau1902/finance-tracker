@@ -43,6 +43,9 @@ export const accounts = pgTable("accounts", {
     .default("0"),
   color: text("color").notNull().default("#0d9488"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  // Open banking fields (TrueLayer)
+  externalAccountId: text("yapily_account_id"),
+  externalAccessToken: text("yapily_consent_token"),
 });
 
 export const categories = pgTable("categories", {

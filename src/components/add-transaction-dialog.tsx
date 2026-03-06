@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, Pencil } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -33,17 +34,41 @@ interface Account {
   type: string;
 }
 
-interface AddTransactionDialogProps {
-  onSuccess?: () => void;
+interface Transaction {
+  id: number;
+  description: string;
+  amount: string;
+  type: "income" | "expense";
+  date: string;
+  notes?: string | null;
+  categoryId?: number | null;
+  accountId?: number | null;
 }
 
-export function AddTransactionDialog({ onSuccess }: AddTransactionDialogProps) {
-  const [open, setOpen] = useState(false);
+interface AddTransactionDialogProps {
+  onSuccess?: () => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  transaction?: Transaction;
+  trigger?: React.ReactNode;
+}
+
+export function AddTransactionDialog({
+  onSuccess,
+  open: externalOpen,
+  onOpenChange: externalOnOpenChange,
+  transaction,
+  trigger,
+}: AddTransactionDialogProps) {
+  const isEditing = !!transaction;
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = externalOpen !== undefined ? externalOpen : internalOpen;
+  const setOpen = externalOnOpenChange ?? setInternalOpen;
   const [categories, setCategories] = useState<Category[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const [form, setForm] = useState({
+  const defaultForm = {
     description: "",
     amount: "",
     type: "expense" as "income" | "expense",
@@ -51,7 +76,27 @@ export function AddTransactionDialog({ onSuccess }: AddTransactionDialogProps) {
     accountId: "",
     date: new Date().toISOString().split("T")[0],
     notes: "",
-  });
+  };
+
+  const [form, setForm] = useState(defaultForm);
+
+  // Sync form when editing transaction changes
+  useEffect(() => {
+    if (transaction && open) {
+      setForm({
+        description: transaction.description,
+        amount: parseFloat(transaction.amount).toString(),
+        type: transaction.type,
+        categoryId: transaction.categoryId ? String(transaction.categoryId) : "",
+        accountId: transaction.accountId ? String(transaction.accountId) : "",
+        date: transaction.date.split("T")[0],
+        notes: transaction.notes ?? "",
+      });
+    } else if (!open) {
+      setForm(defaultForm);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, transaction]);
 
   useEffect(() => {
     if (open) {
@@ -68,28 +113,29 @@ export function AddTransactionDialog({ onSuccess }: AddTransactionDialogProps) {
 
     setLoading(true);
     try {
-      const res = await fetch("/api/transactions", {
-        method: "POST",
+      const url = isEditing
+        ? `/api/transactions/${transaction.id}`
+        : "/api/transactions";
+      const method = isEditing ? "PATCH" : "POST";
+
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
           amount: parseFloat(form.amount),
           categoryId: form.categoryId || null,
+          accountId: parseInt(form.accountId),
         }),
       });
 
       if (res.ok) {
         setOpen(false);
-        setForm({
-          description: "",
-          amount: "",
-          type: "expense",
-          categoryId: "",
-          accountId: "",
-          date: new Date().toISOString().split("T")[0],
-          notes: "",
-        });
+        toast.success(isEditing ? "Transaction updated" : "Transaction added");
         onSuccess?.();
+      } else {
+        const data = await res.json();
+        toast.error(data.error ?? "Something went wrong");
       }
     } finally {
       setLoading(false);
@@ -99,14 +145,25 @@ export function AddTransactionDialog({ onSuccess }: AddTransactionDialogProps) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="gap-2">
-          <Plus className="w-4 h-4" />
-          Add Transaction
-        </Button>
+        {trigger ?? (
+          <Button className="gap-2">
+            {isEditing ? (
+              <>
+                <Pencil className="w-4 h-4" />
+                Edit
+              </>
+            ) : (
+              <>
+                <Plus className="w-4 h-4" />
+                Add Transaction
+              </>
+            )}
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>New Transaction</DialogTitle>
+          <DialogTitle>{isEditing ? "Edit Transaction" : "New Transaction"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-2">
           {/* Type toggle */}
@@ -218,7 +275,7 @@ export function AddTransactionDialog({ onSuccess }: AddTransactionDialogProps) {
           </div>
 
           <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Saving..." : "Save Transaction"}
+            {loading ? "Saving..." : isEditing ? "Save Changes" : "Save Transaction"}
           </Button>
         </form>
       </DialogContent>

@@ -15,6 +15,8 @@ export async function GET(req: NextRequest) {
   try {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
 
     const allAccounts = await db
       .select()
@@ -45,6 +47,30 @@ export async function GET(req: NextRequest) {
           eq(transactions.userId, userId!),
           eq(transactions.type, "expense"),
           gte(transactions.date, startOfMonth)
+        )
+      );
+
+    const [{ lastIncome: lastMonthIncome }] = await db
+      .select({ lastIncome: sum(transactions.amount) })
+      .from(transactions)
+      .where(
+        and(
+          eq(transactions.userId, userId!),
+          eq(transactions.type, "income"),
+          gte(transactions.date, startOfLastMonth),
+          lte(transactions.date, endOfLastMonth)
+        )
+      );
+
+    const [{ lastExpense: lastMonthExpense }] = await db
+      .select({ lastExpense: sum(transactions.amount) })
+      .from(transactions)
+      .where(
+        and(
+          eq(transactions.userId, userId!),
+          eq(transactions.type, "expense"),
+          gte(transactions.date, startOfLastMonth),
+          lte(transactions.date, endOfLastMonth)
         )
       );
 
@@ -117,6 +143,8 @@ export async function GET(req: NextRequest) {
       totalBalance,
       monthIncome: parseFloat(String(monthIncome || 0)),
       monthExpense: parseFloat(String(monthExpense || 0)),
+      lastMonthIncome: parseFloat(String(lastMonthIncome || 0)),
+      lastMonthExpense: parseFloat(String(lastMonthExpense || 0)),
       monthlySavings:
         parseFloat(String(monthIncome || 0)) - parseFloat(String(monthExpense || 0)),
       accounts: allAccounts,

@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, CreditCard, Landmark, Wallet, TrendingUp } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Plus, CreditCard, Landmark, Wallet, TrendingUp, ArrowRight, Pencil, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import {
   Dialog,
   DialogContent,
@@ -21,6 +23,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { formatCurrency } from "@/lib/format";
+import { ConnectBankButton } from "@/components/connect-bank-button";
+
 
 interface Account {
   id: number;
@@ -45,6 +49,13 @@ const accountColors: Record<string, string> = {
   investment: "#059669",
 };
 
+const accountTypeLabels: Record<string, string> = {
+  checking: "Checking",
+  savings: "Savings",
+  credit: "Credit Card",
+  investment: "Investment",
+};
+
 export function AccountsContent() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,6 +66,11 @@ export function AccountsContent() {
     type: "checking",
     balance: "",
   });
+
+  const [editAccount, setEditAccount] = useState<Account | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", type: "checking" });
+  const [editSaving, setEditSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const fetchAccounts = async () => {
     setLoading(true);
@@ -70,10 +86,63 @@ export function AccountsContent() {
     fetchAccounts();
   }, []);
 
-  const totalNetWorth = accounts.reduce(
-    (sum, a) => sum + parseFloat(a.balance),
-    0
-  );
+  const assets = accounts
+    .filter((a) => parseFloat(a.balance) >= 0)
+    .reduce((sum, a) => sum + parseFloat(a.balance), 0);
+
+  const liabilities = accounts
+    .filter((a) => parseFloat(a.balance) < 0)
+    .reduce((sum, a) => sum + parseFloat(a.balance), 0);
+
+  const totalNetWorth = assets + liabilities;
+
+  const openEdit = (account: Account) => {
+    setEditAccount(account);
+    setEditForm({ name: account.name, type: account.type });
+  };
+
+  const handleEditSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editAccount) return;
+    setEditSaving(true);
+    try {
+      const res = await fetch(`/api/accounts/${editAccount.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: editForm.name,
+          type: editForm.type,
+          color: accountColors[editForm.type] ?? editAccount.color,
+        }),
+      });
+      if (res.ok) {
+        setEditAccount(null);
+        toast.success("Account updated");
+        fetchAccounts();
+      } else {
+        const data = await res.json();
+        toast.error(data.error ?? "Failed to update account");
+      }
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
+  const handleDelete = async (account: Account) => {
+    setDeletingId(account.id);
+    try {
+      const res = await fetch(`/api/accounts/${account.id}`, { method: "DELETE" });
+      if (res.ok) {
+        toast.success("Account deleted");
+        fetchAccounts();
+      } else {
+        const data = await res.json();
+        toast.error(data.error ?? "Failed to delete account");
+      }
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,7 +161,11 @@ export function AccountsContent() {
       if (res.ok) {
         setDialogOpen(false);
         setForm({ name: "", type: "checking", balance: "" });
+        toast.success("Account added");
         fetchAccounts();
+      } else {
+        const data = await res.json();
+        toast.error(data.error ?? "Failed to add account");
       }
     } finally {
       setSaving(false);
@@ -109,11 +182,15 @@ export function AccountsContent() {
             {accounts.length} account{accounts.length !== 1 ? "s" : ""}
           </p>
         </div>
+        <div className="flex items-center gap-2">
+          <ConnectBankButton variant="outline" className="gap-2">
+            Connect Bank
+          </ConnectBankButton>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
             <Button className="gap-2">
               <Plus className="w-4 h-4" />
-              Add Account
+              Add Manually
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-sm">
@@ -163,30 +240,105 @@ export function AccountsContent() {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
+
+      {/* Edit Account Dialog */}
+      <Dialog open={!!editAccount} onOpenChange={(open) => { if (!open) setEditAccount(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Edit Account</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleEditSave} className="space-y-4 mt-2">
+            <div className="space-y-1.5">
+              <Label>Account Name</Label>
+              <Input
+                value={editForm.name}
+                onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Account Type</Label>
+              <Select
+                value={editForm.type}
+                onValueChange={(v) => setEditForm({ ...editForm, type: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="checking">Checking</SelectItem>
+                  <SelectItem value="savings">Savings</SelectItem>
+                  <SelectItem value="credit">Credit Card</SelectItem>
+                  <SelectItem value="investment">Investment</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button type="submit" className="w-full" disabled={editSaving}>
+              {editSaving ? "Saving..." : "Save Changes"}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* Net Worth Card */}
       <Card className="border-border/60 shadow-sm bg-gradient-to-br from-primary/5 to-primary/10">
         <CardContent className="p-5">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-            Net Worth
-          </p>
-          <p
-            className={`text-3xl font-bold mt-1 ${
-              totalNetWorth >= 0 ? "text-foreground" : "text-rose-500"
-            }`}
-          >
-            {formatCurrency(totalNetWorth)}
-          </p>
-          <p className="text-xs text-muted-foreground mt-1">
-            Across {accounts.length} account{accounts.length !== 1 ? "s" : ""}
-          </p>
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Net Worth
+              </p>
+              <p
+                className={`text-3xl font-bold mt-1 ${
+                  totalNetWorth >= 0 ? "text-foreground" : "text-rose-500"
+                }`}
+              >
+                {formatCurrency(totalNetWorth)}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Across {accounts.length} account{accounts.length !== 1 ? "s" : ""}
+              </p>
+            </div>
+            {accounts.length > 0 && (
+              <div className="text-right space-y-1">
+                <div>
+                  <p className="text-xs text-muted-foreground">Assets</p>
+                  <p className="text-sm font-semibold text-emerald-600">
+                    +{formatCurrency(assets)}
+                  </p>
+                </div>
+                {liabilities < 0 && (
+                  <div>
+                    <p className="text-xs text-muted-foreground">Liabilities</p>
+                    <p className="text-sm font-semibold text-rose-500">
+                      {formatCurrency(liabilities)}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
 
       {/* Accounts Grid */}
       {loading ? (
         <div className="text-center py-12 text-muted-foreground text-sm">Loading...</div>
+      ) : accounts.length === 0 ? (
+        <div className="text-center py-16 text-muted-foreground">
+          <div className="w-12 h-12 rounded-2xl bg-secondary flex items-center justify-center mx-auto mb-3">
+            <Wallet className="w-6 h-6 opacity-40" />
+          </div>
+          <p className="font-medium text-foreground">No accounts yet</p>
+          <p className="text-sm mt-1">Connect your bank or add an account manually</p>
+          <div className="flex items-center justify-center gap-2 mt-4">
+            <ConnectBankButton variant="default" className="gap-2">
+              Connect Bank
+            </ConnectBankButton>
+          </div>
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {accounts.map((account) => {
@@ -206,19 +358,36 @@ export function AccountsContent() {
                       style={{ backgroundColor: account.color + "22" }}
                     >
                       <Icon
-                        className="w-5.5 h-5.5"
+                        className="w-5 h-5"
                         style={{ color: account.color }}
                       />
                     </div>
-                    <span
-                      className="text-xs font-medium px-2 py-0.5 rounded-full capitalize"
-                      style={{
-                        backgroundColor: account.color + "18",
-                        color: account.color,
-                      }}
-                    >
-                      {account.type}
-                    </span>
+                    <div className="flex items-center gap-1">
+                      <span
+                        className="text-xs font-medium px-2 py-0.5 rounded-full capitalize"
+                        style={{
+                          backgroundColor: account.color + "18",
+                          color: account.color,
+                        }}
+                      >
+                        {accountTypeLabels[account.type] ?? account.type}
+                      </span>
+                      <button
+                        onClick={() => openEdit(account)}
+                        className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                        title="Edit account"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(account)}
+                        disabled={deletingId === account.id}
+                        className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-500 hover:bg-rose-50 transition-colors disabled:opacity-50"
+                        title="Delete account"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                   <p className="text-sm font-medium text-muted-foreground">
                     {account.name}
@@ -230,18 +399,13 @@ export function AccountsContent() {
                   >
                     {formatCurrency(balance)}
                   </p>
-                  <div
-                    className="mt-3 h-1 rounded-full"
-                    style={{ backgroundColor: account.color + "33" }}
+                  <Link
+                    href={`/transactions?accountId=${account.id}`}
+                    className="mt-3 flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
                   >
-                    <div
-                      className="h-1 rounded-full transition-all"
-                      style={{
-                        backgroundColor: account.color,
-                        width: isNegative ? "100%" : "60%",
-                      }}
-                    />
-                  </div>
+                    View transactions
+                    <ArrowRight className="w-3 h-3" />
+                  </Link>
                 </CardContent>
               </Card>
             );

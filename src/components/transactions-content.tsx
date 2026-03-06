@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Search, Filter, Trash2 } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { Search, Trash2, Pencil } from "lucide-react";
+import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
   SelectContent,
@@ -12,6 +15,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { AddTransactionDialog } from "@/components/add-transaction-dialog";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { Button } from "@/components/ui/button";
@@ -23,6 +36,8 @@ interface Transaction {
   type: "income" | "expense";
   date: string;
   notes?: string | null;
+  categoryId?: number | null;
+  accountId?: number | null;
   category?: { name: string; color: string; icon: string } | null;
   account?: { name: string } | null;
 }
@@ -33,13 +48,44 @@ interface Category {
   type: string;
 }
 
+interface Account {
+  id: number;
+  name: string;
+  type: string;
+}
+
+function SkeletonRows() {
+  return (
+    <>
+      {[...Array(6)].map((_, i) => (
+        <div key={i} className="flex items-center gap-3 px-5 py-3.5">
+          <Skeleton className="w-9 h-9 rounded-xl flex-shrink-0" />
+          <div className="flex-1 space-y-1.5">
+            <Skeleton className="h-4 w-40" />
+            <Skeleton className="h-3 w-28" />
+          </div>
+          <Skeleton className="h-4 w-16" />
+        </div>
+      ))}
+    </>
+  );
+}
+
 export function TransactionsContent() {
+  const searchParams = useSearchParams();
+  const initialAccountId = searchParams.get("accountId") ?? "all";
+
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [accountFilter, setAccountFilter] = useState(initialAccountId);
+  const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [editTx, setEditTx] = useState<Transaction | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
 
   const fetchTransactions = useCallback(async () => {
     setLoading(true);
@@ -47,6 +93,7 @@ export function TransactionsContent() {
       const params = new URLSearchParams({ limit: "100" });
       if (typeFilter !== "all") params.set("type", typeFilter);
       if (categoryFilter !== "all") params.set("categoryId", categoryFilter);
+      if (accountFilter !== "all") params.set("accountId", accountFilter);
 
       const res = await fetch(`/api/transactions?${params}`);
       const data = await res.json();
@@ -54,19 +101,29 @@ export function TransactionsContent() {
     } finally {
       setLoading(false);
     }
-  }, [typeFilter, categoryFilter]);
+  }, [typeFilter, categoryFilter, accountFilter]);
 
   useEffect(() => {
     fetchTransactions();
-    fetch("/api/categories")
-      .then((r) => r.json())
-      .then(setCategories);
+    fetch("/api/categories").then((r) => r.json()).then(setCategories);
+    fetch("/api/accounts").then((r) => r.json()).then(setAccounts);
   }, [fetchTransactions]);
 
-  const handleDelete = async (id: number) => {
-    if (!confirm("Delete this transaction?")) return;
-    await fetch(`/api/transactions/${id}`, { method: "DELETE" });
-    fetchTransactions();
+  const handleDelete = async () => {
+    if (deleteId === null) return;
+    const res = await fetch(`/api/transactions/${deleteId}`, { method: "DELETE" });
+    setDeleteId(null);
+    if (res.ok) {
+      toast.success("Transaction deleted");
+      fetchTransactions();
+    } else {
+      toast.error("Failed to delete transaction");
+    }
+  };
+
+  const handleEditClick = (tx: Transaction) => {
+    setEditTx(tx);
+    setEditOpen(true);
   };
 
   const filtered = transactions.filter((tx) =>
@@ -158,15 +215,26 @@ export function TransactionsContent() {
             ))}
           </SelectContent>
         </Select>
+        <Select value={accountFilter} onValueChange={setAccountFilter}>
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder="All accounts" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All accounts</SelectItem>
+            {accounts.map((a) => (
+              <SelectItem key={a.id} value={String(a.id)}>
+                {a.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Transaction list */}
       <Card className="border-border/60 shadow-sm">
         <CardContent className="p-0">
           {loading ? (
-            <div className="text-center py-12 text-muted-foreground text-sm">
-              Loading...
-            </div>
+            <SkeletonRows />
           ) : filtered.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground text-sm">
               No transactions found
@@ -208,7 +276,7 @@ export function TransactionsContent() {
                         </span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1">
                       <span
                         className={`text-sm font-semibold tabular-nums ${
                           isIncome ? "text-emerald-600" : "text-rose-500"
@@ -220,8 +288,16 @@ export function TransactionsContent() {
                       <Button
                         variant="ghost"
                         size="icon"
+                        className="opacity-0 group-hover:opacity-100 h-7 w-7 text-muted-foreground hover:text-primary transition-all"
+                        onClick={() => handleEditClick(tx)}
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         className="opacity-0 group-hover:opacity-100 h-7 w-7 text-muted-foreground hover:text-rose-500 transition-all"
-                        onClick={() => handleDelete(tx.id)}
+                        onClick={() => setDeleteId(tx.id)}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </Button>
@@ -233,6 +309,41 @@ export function TransactionsContent() {
           )}
         </CardContent>
       </Card>
+
+      {/* Delete confirmation */}
+      <AlertDialog open={deleteId !== null} onOpenChange={(open) => !open && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete transaction?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove the transaction and reverse its effect on the account balance.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-rose-500 hover:bg-rose-600"
+              onClick={handleDelete}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Edit dialog */}
+      {editTx && (
+        <AddTransactionDialog
+          transaction={editTx}
+          open={editOpen}
+          onOpenChange={(open) => {
+            setEditOpen(open);
+            if (!open) setEditTx(null);
+          }}
+          onSuccess={fetchTransactions}
+          trigger={<span className="hidden" />}
+        />
+      )}
     </div>
   );
 }

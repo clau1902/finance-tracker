@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import { toast } from "sonner";
 import {
   TrendingUp,
   TrendingDown,
@@ -8,8 +10,14 @@ import {
   PiggyBank,
   ArrowUpRight,
   ArrowDownRight,
+  Plus,
+  CreditCard,
+  Landmark,
 } from "lucide-react";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   AreaChart,
   Area,
@@ -25,12 +33,16 @@ import {
 } from "recharts";
 import { TransactionRow } from "@/components/transaction-row";
 import { AddTransactionDialog } from "@/components/add-transaction-dialog";
+import { OnboardingChecklist } from "@/components/onboarding-checklist";
+import { ConnectBankButton } from "@/components/connect-bank-button";
 import { formatCurrency } from "@/lib/format";
 
 interface DashboardData {
   totalBalance: number;
   monthIncome: number;
   monthExpense: number;
+  lastMonthIncome: number;
+  lastMonthExpense: number;
   monthlySavings: number;
   accounts: Account[];
   recentTransactions: Transaction[];
@@ -56,11 +68,69 @@ interface Transaction {
   account?: { name: string } | null;
 }
 
+const accountIcons: Record<string, React.ElementType> = {
+  checking: Wallet,
+  savings: Landmark,
+  credit: CreditCard,
+  investment: TrendingUp,
+};
+
+function trendPct(current: number, previous: number) {
+  if (previous === 0) return null;
+  return ((current - previous) / previous) * 100;
+}
+
+function DashboardSkeleton() {
+  return (
+    <div className="p-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="space-y-1.5">
+          <Skeleton className="h-7 w-32" />
+          <Skeleton className="h-4 w-24" />
+        </div>
+        <Skeleton className="h-9 w-36" />
+      </div>
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+        {[...Array(4)].map((_, i) => (
+          <Card key={i} className="border-border/60">
+            <CardContent className="p-5">
+              <div className="flex items-start justify-between">
+                <div className="space-y-2">
+                  <Skeleton className="h-3 w-20" />
+                  <Skeleton className="h-7 w-28" />
+                </div>
+                <Skeleton className="w-10 h-10 rounded-xl" />
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+        <Card className="xl:col-span-2 border-border/60">
+          <CardContent className="p-5">
+            <Skeleton className="h-5 w-40 mb-4" />
+            <Skeleton className="h-[220px] w-full" />
+          </CardContent>
+        </Card>
+        <Card className="border-border/60">
+          <CardContent className="p-5">
+            <Skeleton className="h-5 w-36 mb-4" />
+            <Skeleton className="h-[220px] w-full" />
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
 export function DashboardContent() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [txDialogOpen, setTxDialogOpen] = useState(false);
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const res = await fetch("/api/dashboard");
       const json = await res.json();
@@ -70,21 +140,29 @@ export function DashboardContent() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="animate-pulse text-muted-foreground">Loading...</div>
-      </div>
-    );
-  }
+  // Handle Yapily callback query params
+  useEffect(() => {
+    if (searchParams.get("bank_connected") === "1") {
+      toast.success("Bank connected! Your accounts have been imported.");
+      router.replace("/dashboard");
+      fetchData();
+    } else if (searchParams.get("bank_error") === "1") {
+      toast.error("Bank connection failed or was cancelled.");
+      router.replace("/dashboard");
+    }
+  }, [searchParams, router, fetchData]);
 
+  if (loading) return <DashboardSkeleton />;
   if (!data) return null;
+
+  const incomePct = trendPct(data.monthIncome, data.lastMonthIncome);
+  const expensePct = trendPct(data.monthExpense, data.lastMonthExpense);
 
   const summaryCards = [
     {
@@ -101,7 +179,8 @@ export function DashboardContent() {
       icon: TrendingUp,
       iconColor: "text-emerald-600",
       iconBg: "bg-emerald-100",
-      trend: { positive: true },
+      trend: incomePct,
+      trendPositiveIsGood: true,
     },
     {
       label: "Monthly Expenses",
@@ -109,7 +188,8 @@ export function DashboardContent() {
       icon: TrendingDown,
       iconColor: "text-rose-500",
       iconBg: "bg-rose-100",
-      trend: { positive: false },
+      trend: expensePct,
+      trendPositiveIsGood: false,
     },
     {
       label: "Net Savings",
@@ -131,13 +211,33 @@ export function DashboardContent() {
             {new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })}
           </p>
         </div>
-        <AddTransactionDialog onSuccess={fetchData} />
+        <AddTransactionDialog
+          onSuccess={fetchData}
+          open={txDialogOpen}
+          onOpenChange={setTxDialogOpen}
+        />
       </div>
+
+      {/* Onboarding Checklist */}
+      <OnboardingChecklist
+        hasAccounts={data.accounts.length > 0}
+        hasTransactions={data.recentTransactions.length > 0}
+        onAddTransaction={() => setTxDialogOpen(true)}
+      />
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
         {summaryCards.map((card) => {
           const Icon = card.icon;
+          const pct = card.trend;
+          const isPositive = pct !== null && pct >= 0;
+          const isGood =
+            pct === null
+              ? null
+              : card.trendPositiveIsGood
+              ? isPositive
+              : !isPositive;
+
           return (
             <Card key={card.label} className="border-border/60 shadow-sm">
               <CardContent className="p-5">
@@ -149,6 +249,16 @@ export function DashboardContent() {
                     <p className="text-2xl font-semibold mt-1 text-foreground">
                       {card.value}
                     </p>
+                    {pct !== null && (
+                      <p
+                        className={`text-xs mt-1 font-medium ${
+                          isGood ? "text-emerald-600" : "text-rose-500"
+                        }`}
+                      >
+                        {isPositive ? "+" : ""}
+                        {pct.toFixed(1)}% vs last month
+                      </p>
+                    )}
                   </div>
                   <div className={`w-10 h-10 rounded-xl ${card.iconBg} flex items-center justify-center`}>
                     <Icon className={`w-5 h-5 ${card.iconColor}`} />
@@ -229,8 +339,19 @@ export function DashboardContent() {
                 </PieChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-[220px] flex items-center justify-center text-muted-foreground text-sm">
-                No spending data this month
+              <div className="h-[220px] flex flex-col items-center justify-center gap-3 text-center px-4">
+                <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center">
+                  <PiggyBank className="w-5 h-5 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-foreground">No spending yet</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Add expense transactions to see your breakdown
+                  </p>
+                </div>
+                <Button size="sm" variant="outline" className="gap-1.5 h-7 text-xs" onClick={() => setTxDialogOpen(true)}>
+                  <Plus className="w-3 h-3" /> Add transaction
+                </Button>
               </div>
             )}
           </CardContent>
@@ -241,8 +362,14 @@ export function DashboardContent() {
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
         {/* Recent Transactions */}
         <Card className="xl:col-span-2 border-border/60 shadow-sm">
-          <CardHeader className="pb-2">
+          <CardHeader className="pb-2 flex flex-row items-center justify-between">
             <CardTitle className="text-base font-medium">Recent Transactions</CardTitle>
+            <Link
+              href="/transactions"
+              className="text-xs text-primary hover:underline font-medium"
+            >
+              View all →
+            </Link>
           </CardHeader>
           <CardContent className="p-0">
             <div className="divide-y divide-border/50">
@@ -250,7 +377,28 @@ export function DashboardContent() {
                 <TransactionRow key={tx.id} transaction={tx} />
               ))}
               {data.recentTransactions.length === 0 && (
-                <p className="text-center text-muted-foreground text-sm py-8">No transactions yet</p>
+                <div className="flex flex-col items-center gap-3 py-10 text-center px-4">
+                  <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center">
+                    <ArrowUpRight className="w-5 h-5 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-foreground">No transactions yet</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {data.accounts.length === 0
+                        ? "Add an account first, then record your income and expenses"
+                        : "Start recording your income and expenses"}
+                    </p>
+                  </div>
+                  {data.accounts.length === 0 ? (
+                    <ConnectBankButton size="sm" variant="outline" className="gap-1.5 h-7 text-xs">
+                      Connect bank
+                    </ConnectBankButton>
+                  ) : (
+                    <Button size="sm" variant="outline" className="gap-1.5 h-7 text-xs" onClick={() => setTxDialogOpen(true)}>
+                      <Plus className="w-3 h-3" /> Add transaction
+                    </Button>
+                  )}
+                </div>
               )}
             </div>
           </CardContent>
@@ -258,12 +406,30 @@ export function DashboardContent() {
 
         {/* Accounts */}
         <Card className="border-border/60 shadow-sm">
-          <CardHeader className="pb-2">
+          <CardHeader className="pb-2 flex flex-row items-center justify-between">
             <CardTitle className="text-base font-medium">Accounts</CardTitle>
+            <Link href="/accounts" className="text-xs text-primary hover:underline font-medium">
+              Manage →
+            </Link>
           </CardHeader>
           <CardContent className="space-y-3">
+            {data.accounts.length === 0 && (
+              <div className="flex flex-col items-center gap-3 py-6 text-center">
+                <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center">
+                  <Wallet className="w-5 h-5 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-foreground">No accounts yet</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Connect your bank to get started</p>
+                </div>
+                <ConnectBankButton size="sm" variant="outline" className="gap-1.5 h-7 text-xs">
+                  Connect bank
+                </ConnectBankButton>
+              </div>
+            )}
             {data.accounts.map((account) => {
               const balance = parseFloat(account.balance);
+              const Icon = accountIcons[account.type] ?? Wallet;
               return (
                 <div
                   key={account.id}
@@ -274,7 +440,7 @@ export function DashboardContent() {
                       className="w-9 h-9 rounded-lg flex items-center justify-center"
                       style={{ backgroundColor: account.color + "22" }}
                     >
-                      <Wallet className="w-4.5 h-4.5" style={{ color: account.color }} />
+                      <Icon className="w-4 h-4" style={{ color: account.color }} />
                     </div>
                     <div>
                       <p className="text-sm font-medium leading-none">{account.name}</p>
