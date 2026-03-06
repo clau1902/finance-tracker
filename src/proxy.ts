@@ -8,14 +8,19 @@ const { auth } = NextAuth(authConfig);
 
 export default auth((req) => {
   const isAuthed = !!req.auth;
-  const isAuthPage = req.nextUrl.pathname.startsWith("/auth");
+  const { pathname } = req.nextUrl;
+  const isAuthPage = pathname.startsWith("/auth");
+  const isLanding = pathname === "/";
+
+  // Landing page is public — let everyone through
+  if (isLanding) return;
 
   if (!isAuthed && !isAuthPage) {
     return NextResponse.redirect(new URL("/auth/signin", req.url));
   }
 
   if (isAuthed && isAuthPage) {
-    return NextResponse.redirect(new URL("/", req.url));
+    return NextResponse.redirect(new URL("/dashboard", req.url));
   }
 });
 
