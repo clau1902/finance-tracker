@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
+import { Plus, AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Trash2, CalendarClock } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -34,6 +34,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { formatCurrency } from "@/lib/format";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface Budget {
   id: number;
@@ -98,6 +99,12 @@ export function BudgetsContent() {
   };
 
   const isCurrentMonth = viewMonth === now.getMonth() + 1 && viewYear === now.getFullYear();
+
+  const daysLeftInMonth = (() => {
+    if (!isCurrentMonth) return null;
+    const lastDay = new Date(viewYear, viewMonth, 0).getDate();
+    return lastDay - now.getDate();
+  })();
 
   const totalBudgeted = budgets.reduce((sum, b) => sum + parseFloat(b.amount), 0);
   const totalSpent = budgets.reduce((sum, b) => sum + b.spent, 0);
@@ -251,8 +258,14 @@ export function BudgetsContent() {
             className={`h-2.5 ${overallPct > 100 ? "[&>div]:bg-rose-500" : overallPct > 80 ? "[&>div]:bg-amber-500" : "[&>div]:bg-primary"}`}
           />
           <div className="flex items-center justify-between mt-3">
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground flex items-center gap-1.5">
               {formatCurrency(Math.max(0, totalBudgeted - totalSpent))} remaining
+              {daysLeftInMonth !== null && (
+                <span className="flex items-center gap-1 text-muted-foreground/70">
+                  <CalendarClock className="w-3 h-3" />
+                  {daysLeftInMonth === 0 ? "last day" : `${daysLeftInMonth}d left`}
+                </span>
+              )}
             </p>
             {budgets.length > 0 && (
               <div className="flex items-center gap-3 text-xs">
@@ -282,7 +295,26 @@ export function BudgetsContent() {
 
       {/* Budget list */}
       {loading ? (
-        <div className="text-center py-12 text-muted-foreground text-sm">Loading...</div>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {[...Array(3)].map((_, i) => (
+            <Card key={i} className="border-border/60">
+              <CardContent className="p-4 space-y-3">
+                <div className="flex items-center gap-3">
+                  <Skeleton className="w-9 h-9 rounded-xl flex-shrink-0" />
+                  <div className="flex-1 space-y-1.5">
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-3 w-32" />
+                  </div>
+                </div>
+                <Skeleton className="h-2.5 w-full rounded-full" />
+                <div className="flex justify-between">
+                  <Skeleton className="h-3 w-20" />
+                  <Skeleton className="h-3 w-8" />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       ) : budgets.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           <div className="w-12 h-12 rounded-2xl bg-secondary flex items-center justify-center mx-auto mb-3">
@@ -335,7 +367,7 @@ export function BudgetsContent() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-6 w-6 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-rose-500 transition-all"
+                        className="h-6 w-6 text-muted-foreground hover:text-rose-500 transition-colors"
                         onClick={() => setDeleteId(budget.id)}
                       >
                         <Trash2 className="w-3.5 h-3.5" />

@@ -13,6 +13,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -70,7 +80,8 @@ export function AccountsContent() {
   const [editAccount, setEditAccount] = useState<Account | null>(null);
   const [editForm, setEditForm] = useState({ name: "", type: "checking" });
   const [editSaving, setEditSaving] = useState(false);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [deleteAccount, setDeleteAccount] = useState<Account | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchAccounts = async () => {
     setLoading(true);
@@ -128,19 +139,21 @@ export function AccountsContent() {
     }
   };
 
-  const handleDelete = async (account: Account) => {
-    setDeletingId(account.id);
+  const handleDelete = async () => {
+    if (!deleteAccount) return;
+    setDeleting(true);
     try {
-      const res = await fetch(`/api/accounts/${account.id}`, { method: "DELETE" });
+      const res = await fetch(`/api/accounts/${deleteAccount.id}`, { method: "DELETE" });
       if (res.ok) {
-        toast.success("Account deleted");
+        toast.success(`"${deleteAccount.name}" deleted`);
+        setDeleteAccount(null);
         fetchAccounts();
       } else {
         const data = await res.json();
         toast.error(data.error ?? "Failed to delete account");
       }
     } finally {
-      setDeletingId(null);
+      setDeleting(false);
     }
   };
 
@@ -282,6 +295,28 @@ export function AccountsContent() {
         </DialogContent>
       </Dialog>
 
+      {/* Delete confirmation */}
+      <AlertDialog open={!!deleteAccount} onOpenChange={(open) => { if (!open) setDeleteAccount(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete &ldquo;{deleteAccount?.name}&rdquo;?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the account and all its transactions. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-rose-500 hover:bg-rose-600"
+              onClick={handleDelete}
+              disabled={deleting}
+            >
+              {deleting ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Net Worth Card */}
       <Card className="border-border/60 shadow-sm bg-gradient-to-br from-primary/5 to-primary/10">
         <CardContent className="p-5">
@@ -380,9 +415,8 @@ export function AccountsContent() {
                         <Pencil className="w-3.5 h-3.5" />
                       </button>
                       <button
-                        onClick={() => handleDelete(account)}
-                        disabled={deletingId === account.id}
-                        className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-500 hover:bg-rose-50 transition-colors disabled:opacity-50"
+                        onClick={() => setDeleteAccount(account)}
+                        className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-500 hover:bg-rose-50 transition-colors"
                         title="Delete account"
                       >
                         <Trash2 className="w-3.5 h-3.5" />

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
-import { Search, Trash2, Pencil } from "lucide-react";
+import { Search, Trash2, Pencil, X, FilterX } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -71,6 +71,22 @@ function SkeletonRows() {
   );
 }
 
+function getDateLabel(dateStr: string): string {
+  const date = new Date(dateStr);
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+
+  if (date.toDateString() === today.toDateString()) return "Today";
+  if (date.toDateString() === yesterday.toDateString()) return "Yesterday";
+  return date.toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: date.getFullYear() !== today.getFullYear() ? "numeric" : undefined,
+  });
+}
+
 export function TransactionsContent() {
   const searchParams = useSearchParams();
   const initialAccountId = searchParams.get("accountId") ?? "all";
@@ -126,6 +142,16 @@ export function TransactionsContent() {
     setEditOpen(true);
   };
 
+  const hasActiveFilters =
+    search !== "" || typeFilter !== "all" || categoryFilter !== "all" || accountFilter !== "all";
+
+  const clearFilters = () => {
+    setSearch("");
+    setTypeFilter("all");
+    setCategoryFilter("all");
+    setAccountFilter("all");
+  };
+
   const filtered = transactions.filter((tx) =>
     search
       ? tx.description.toLowerCase().includes(search.toLowerCase()) ||
@@ -140,6 +166,18 @@ export function TransactionsContent() {
   const totalExpense = filtered
     .filter((tx) => tx.type === "expense")
     .reduce((sum, tx) => sum + parseFloat(tx.amount), 0);
+
+  // Group by date label
+  const groups: { label: string; items: Transaction[] }[] = [];
+  for (const tx of filtered) {
+    const label = getDateLabel(tx.date);
+    const last = groups[groups.length - 1];
+    if (last && last.label === label) {
+      last.items.push(tx);
+    } else {
+      groups.push({ label, items: [tx] });
+    }
+  }
 
   return (
     <div className="p-6 space-y-5">
@@ -182,7 +220,7 @@ export function TransactionsContent() {
       </div>
 
       {/* Filters */}
-      <div className="flex gap-3 flex-wrap">
+      <div className="flex gap-3 flex-wrap items-center">
         <div className="relative flex-1 min-w-48">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
@@ -191,6 +229,14 @@ export function TransactionsContent() {
             placeholder="Search transactions..."
             className="pl-9"
           />
+          {search && (
+            <button
+              onClick={() => setSearch("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
         <Select value={typeFilter} onValueChange={setTypeFilter}>
           <SelectTrigger className="w-36">
@@ -228,6 +274,12 @@ export function TransactionsContent() {
             ))}
           </SelectContent>
         </Select>
+        {hasActiveFilters && (
+          <Button variant="ghost" size="sm" onClick={clearFilters} className="gap-1.5 text-muted-foreground hover:text-foreground">
+            <FilterX className="w-3.5 h-3.5" />
+            Clear
+          </Button>
+        )}
       </div>
 
       {/* Transaction list */}
@@ -236,75 +288,101 @@ export function TransactionsContent() {
           {loading ? (
             <SkeletonRows />
           ) : filtered.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground text-sm">
-              No transactions found
+            <div className="flex flex-col items-center gap-3 py-12 text-center px-4">
+              <p className="text-sm font-medium text-foreground">
+                {hasActiveFilters ? "No transactions match your filters" : "No transactions yet"}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {hasActiveFilters
+                  ? "Try adjusting your search or filters"
+                  : "Add your first transaction to get started"}
+              </p>
+              {hasActiveFilters ? (
+                <Button variant="outline" size="sm" onClick={clearFilters} className="gap-1.5">
+                  <FilterX className="w-3.5 h-3.5" />
+                  Clear filters
+                </Button>
+              ) : (
+                <AddTransactionDialog onSuccess={fetchTransactions} />
+              )}
             </div>
           ) : (
-            <div className="divide-y divide-border/50">
-              {filtered.map((tx) => {
-                const amount = parseFloat(tx.amount);
-                const isIncome = tx.type === "income";
-                return (
-                  <div
-                    key={tx.id}
-                    className="flex items-center gap-3 px-5 py-3.5 hover:bg-secondary/40 transition-colors group"
-                  >
-                    <div
-                      className="w-9 h-9 rounded-xl flex-shrink-0 flex items-center justify-center text-white text-sm font-semibold"
-                      style={{ backgroundColor: tx.category?.color ?? "#64748b" }}
-                    >
-                      {tx.description.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{tx.description}</p>
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        {tx.category && (
-                          <Badge
-                            variant="secondary"
-                            className="text-xs py-0 h-4"
-                            style={{
-                              backgroundColor: tx.category.color + "22",
-                              color: tx.category.color,
-                              borderColor: tx.category.color + "44",
-                            }}
-                          >
-                            {tx.category.name}
-                          </Badge>
-                        )}
-                        <span className="text-xs text-muted-foreground">
-                          {tx.account?.name} · {formatDate(tx.date)}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <span
-                        className={`text-sm font-semibold tabular-nums ${
-                          isIncome ? "text-emerald-600" : "text-rose-500"
-                        }`}
-                      >
-                        {isIncome ? "+" : "-"}
-                        {formatCurrency(amount)}
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="opacity-0 group-hover:opacity-100 h-7 w-7 text-muted-foreground hover:text-primary transition-all"
-                        onClick={() => handleEditClick(tx)}
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="opacity-0 group-hover:opacity-100 h-7 w-7 text-muted-foreground hover:text-rose-500 transition-all"
-                        onClick={() => setDeleteId(tx.id)}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
-                    </div>
+            <div>
+              {groups.map((group) => (
+                <div key={group.label}>
+                  <div className="px-5 py-2 bg-secondary/40 border-b border-border/40">
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                      {group.label}
+                    </span>
                   </div>
-                );
-              })}
+                  <div className="divide-y divide-border/50">
+                    {group.items.map((tx) => {
+                      const amount = parseFloat(tx.amount);
+                      const isIncome = tx.type === "income";
+                      return (
+                        <div
+                          key={tx.id}
+                          className="flex items-center gap-3 px-5 py-3.5 hover:bg-secondary/40 transition-colors group"
+                        >
+                          <div
+                            className="w-9 h-9 rounded-xl flex-shrink-0 flex items-center justify-center text-white text-sm font-semibold"
+                            style={{ backgroundColor: tx.category?.color ?? "#64748b" }}
+                          >
+                            {tx.description.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{tx.description}</p>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              {tx.category && (
+                                <Badge
+                                  variant="secondary"
+                                  className="text-xs py-0 h-4"
+                                  style={{
+                                    backgroundColor: tx.category.color + "22",
+                                    color: tx.category.color,
+                                    borderColor: tx.category.color + "44",
+                                  }}
+                                >
+                                  {tx.category.name}
+                                </Badge>
+                              )}
+                              <span className="text-xs text-muted-foreground">
+                                {tx.account?.name} · {formatDate(tx.date)}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span
+                              className={`text-sm font-semibold tabular-nums ${
+                                isIncome ? "text-emerald-600" : "text-rose-500"
+                              }`}
+                            >
+                              {isIncome ? "+" : "-"}
+                              {formatCurrency(amount)}
+                            </span>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="opacity-0 group-hover:opacity-100 h-7 w-7 text-muted-foreground hover:text-primary transition-all"
+                              onClick={() => handleEditClick(tx)}
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="opacity-0 group-hover:opacity-100 h-7 w-7 text-muted-foreground hover:text-rose-500 transition-all"
+                              onClick={() => setDeleteId(tx.id)}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </CardContent>
