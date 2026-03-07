@@ -187,19 +187,19 @@ export function LandingPage() {
                 icon: BarChart3,
                 color: "text-primary bg-primary/10",
                 title: "Instant Clarity",
-                desc: "See 6 months of income vs expenses, your spending breakdown by category, and recent transactions — the moment you log in.",
+                desc: "See 6 months of income vs expenses, trend vs last month, your spending breakdown by category, and recent transactions — the moment you log in.",
               },
               {
                 icon: Target,
                 color: "text-amber-600 bg-amber-100",
                 title: "Budgets That Work",
-                desc: "Set monthly limits per category. Get warned before you overspend — not after it's too late.",
+                desc: "Set monthly limits per category. Navigate past months to review history. Get warned before you overspend — not after it&apos;s too late.",
               },
               {
                 icon: Wallet,
                 color: "text-emerald-600 bg-emerald-100",
                 title: "All Accounts, One View",
-                desc: "Checking, savings, credit cards, investments — track every account and your true net worth in one place.",
+                desc: "Checking, savings, credit cards, investments — track every account with a clear assets vs. liabilities breakdown and your true net worth.",
               },
               {
                 icon: ShieldCheck,
@@ -240,7 +240,7 @@ export function LandingPage() {
             </p>
             <ul className="space-y-3">
               {[
-                "Log transactions in seconds — no manual imports",
+                "Log and edit transactions in seconds — no manual imports",
                 "Instant search across your entire transaction history",
                 "Get warned before you blow your monthly budget",
                 "Spot income & expense trends across 6 months",
@@ -282,8 +282,8 @@ export function LandingPage() {
             Stop guessing where your money goes.
           </h2>
           <p className="mt-3 text-sidebar-foreground/60 leading-relaxed">
-            Set up in under 5 minutes. Your account, spending categories, and
-            demo data are ready the moment you sign up — no configuration needed.
+            Set up in under 5 minutes. Your account and 12 spending categories
+            are created automatically when you sign up — no configuration needed.
           </p>
           <div className="flex items-center justify-center gap-3 mt-8">
             <Button asChild size="lg" className="gap-2 px-6">

@@ -46,6 +46,20 @@ export const budgetSchema = z.object({
   year: z.number().int().min(2000).max(2100),
 });
 
+export const categorySchema = z.object({
+  name: z.string().min(1).max(100),
+  type: z.enum(["income", "expense"]),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+  icon: z.string().max(50).optional().default("tag"),
+});
+
+export const categoryPatchSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  type: z.enum(["income", "expense"]).optional(),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+  icon: z.string().max(50).optional(),
+});
+
 export const registerSchema = z.object({
   name: z.string().min(1).max(100),
   email: z.string().email(),
