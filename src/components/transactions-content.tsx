@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
-import { Search, Trash2, Pencil, X, FilterX } from "lucide-react";
+import { Search, Trash2, Pencil, X, FilterX, Download, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+} from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -46,6 +54,7 @@ interface Category {
   id: number;
   name: string;
   type: string;
+  color: string;
 }
 
 interface Account {
@@ -142,6 +151,39 @@ export function TransactionsContent() {
     setEditOpen(true);
   };
 
+  const handleCategoryChange = async (txId: number, categoryId: number | null) => {
+    const res = await fetch(`/api/transactions/${txId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ categoryId }),
+    });
+    if (res.ok) {
+      fetchTransactions();
+    } else {
+      toast.error("Failed to update category");
+    }
+  };
+
+  const exportCsv = () => {
+    const header = ["Date", "Description", "Type", "Amount", "Category", "Account"];
+    const rows = filtered.map((tx) => [
+      new Date(tx.date).toLocaleDateString(),
+      `"${tx.description.replace(/"/g, '""')}"`,
+      tx.type,
+      tx.amount,
+      tx.category?.name ?? "",
+      tx.account?.name ?? "",
+    ]);
+    const csv = [header, ...rows].map((r) => r.join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `transactions-${new Date().toISOString().split("T")[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const hasActiveFilters =
     search !== "" || typeFilter !== "all" || categoryFilter !== "all" || accountFilter !== "all";
 
@@ -189,7 +231,15 @@ export function TransactionsContent() {
             {filtered.length} transaction{filtered.length !== 1 ? "s" : ""}
           </p>
         </div>
-        <AddTransactionDialog onSuccess={fetchTransactions} />
+        <div className="flex items-center gap-2">
+          {filtered.length > 0 && (
+            <Button variant="outline" size="sm" onClick={exportCsv} className="gap-1.5">
+              <Download className="w-3.5 h-3.5" />
+              Export
+            </Button>
+          )}
+          <AddTransactionDialog onSuccess={fetchTransactions} />
+        </div>
       </div>
 
       {/* Summary bar */}
@@ -333,19 +383,65 @@ export function TransactionsContent() {
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium truncate">{tx.description}</p>
                             <div className="flex items-center gap-1.5 mt-0.5">
-                              {tx.category && (
-                                <Badge
-                                  variant="secondary"
-                                  className="text-xs py-0 h-4"
-                                  style={{
-                                    backgroundColor: tx.category.color + "22",
-                                    color: tx.category.color,
-                                    borderColor: tx.category.color + "44",
-                                  }}
-                                >
-                                  {tx.category.name}
-                                </Badge>
-                              )}
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <button className="flex items-center gap-0.5 group/cat">
+                                    {tx.category ? (
+                                      <Badge
+                                        variant="secondary"
+                                        className="text-xs py-0 h-4 cursor-pointer hover:opacity-80 transition-opacity"
+                                        style={{
+                                          backgroundColor: tx.category.color + "22",
+                                          color: tx.category.color,
+                                          borderColor: tx.category.color + "44",
+                                        }}
+                                      >
+                                        {tx.category.name}
+                                      </Badge>
+                                    ) : (
+                                      <span className="text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors border border-dashed border-border rounded px-1.5 py-0">
+                                        + category
+                                      </span>
+                                    )}
+                                    <ChevronDown className="w-2.5 h-2.5 text-muted-foreground/40 opacity-0 group-hover/cat:opacity-100 transition-opacity ml-0.5" />
+                                  </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="start" className="w-48">
+                                  <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">
+                                    Assign category
+                                  </DropdownMenuLabel>
+                                  <DropdownMenuSeparator />
+                                  {categories
+                                    .filter((c) => c.type === tx.type)
+                                    .map((cat) => (
+                                      <DropdownMenuItem
+                                        key={cat.id}
+                                        onClick={() => handleCategoryChange(tx.id, cat.id)}
+                                        className="gap-2"
+                                      >
+                                        <span
+                                          className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                                          style={{ backgroundColor: cat.color }}
+                                        />
+                                        {cat.name}
+                                        {tx.categoryId === cat.id && (
+                                          <span className="ml-auto text-primary">✓</span>
+                                        )}
+                                      </DropdownMenuItem>
+                                    ))}
+                                  {tx.categoryId && (
+                                    <>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem
+                                        onClick={() => handleCategoryChange(tx.id, null)}
+                                        className="text-muted-foreground"
+                                      >
+                                        Remove category
+                                      </DropdownMenuItem>
+                                    </>
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                               <span className="text-xs text-muted-foreground">
                                 {tx.account?.name} · {formatDate(tx.date)}
                               </span>

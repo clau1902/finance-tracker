@@ -4,6 +4,7 @@ import "./globals.css";
 import { Sidebar } from "@/components/sidebar";
 import { SessionProvider } from "@/components/session-provider";
 import { Toaster } from "@/components/ui/sonner";
+import { ThemeProvider } from "next-themes";
 import { auth } from "@/auth";
 
 const geistSans = Geist({
@@ -28,8 +29,9 @@ export default async function RootLayout({
 }>) {
   const session = await auth();
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
         <SessionProvider session={session}>
           <div className="flex h-screen overflow-hidden bg-background">
             {session && <Sidebar />}
@@ -52,6 +54,7 @@ export default async function RootLayout({
             }}
           />
         </SessionProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

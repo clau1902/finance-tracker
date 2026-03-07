@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
+import { useTheme } from "next-themes";
 import {
   LayoutDashboard,
   ArrowLeftRight,
@@ -10,6 +11,9 @@ import {
   Wallet,
   TrendingUp,
   LogOut,
+  Tags,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -18,11 +22,13 @@ const navItems = [
   { href: "/transactions", label: "Transactions", icon: ArrowLeftRight },
   { href: "/budgets", label: "Budgets", icon: PiggyBank },
   { href: "/accounts", label: "Accounts", icon: Wallet },
+  { href: "/categories", label: "Categories", icon: Tags },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
   const { data: session } = useSession();
+  const { theme, setTheme } = useTheme();
 
   return (
     <aside className="w-64 flex-shrink-0 bg-sidebar text-sidebar-foreground flex flex-col">
@@ -59,7 +65,7 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* User + Sign out */}
+      {/* User + controls */}
       <div className="px-3 py-4 border-t border-sidebar-border space-y-1">
         {session?.user && (
           <div className="px-3 py-2 mb-1">
@@ -71,6 +77,17 @@ export function Sidebar() {
             </p>
           </div>
         )}
+        <button
+          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          className="flex w-full items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
+        >
+          {theme === "dark" ? (
+            <Sun className="w-4 h-4 flex-shrink-0" />
+          ) : (
+            <Moon className="w-4 h-4 flex-shrink-0" />
+          )}
+          {theme === "dark" ? "Light mode" : "Dark mode"}
+        </button>
         <button
           onClick={() => signOut({ callbackUrl: "/auth/signin" })}
           className="flex w-full items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"

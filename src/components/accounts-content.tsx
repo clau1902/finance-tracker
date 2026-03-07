@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, CreditCard, Landmark, Wallet, TrendingUp, ArrowRight, Pencil, Trash2 } from "lucide-react";
+import { Plus, CreditCard, Landmark, Wallet, TrendingUp, ArrowRight, Pencil, Trash2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -43,6 +43,7 @@ interface Account {
   balance: string;
   color: string;
   createdAt: string;
+  externalAccountId?: string | null;
 }
 
 const accountIcons = {
@@ -82,6 +83,7 @@ export function AccountsContent() {
   const [editSaving, setEditSaving] = useState(false);
   const [deleteAccount, setDeleteAccount] = useState<Account | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [syncingId, setSyncingId] = useState<number | null>(null);
 
   const fetchAccounts = async () => {
     setLoading(true);
@@ -154,6 +156,31 @@ export function AccountsContent() {
       }
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleSync = async (account: Account) => {
+    setSyncingId(account.id);
+    try {
+      const res = await fetch("/api/truelayer/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accountId: account.id }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        const msg = data.newTransactions > 0
+          ? `Synced — ${data.newTransactions} new transaction${data.newTransactions !== 1 ? "s" : ""}`
+          : "Balance updated, no new transactions";
+        toast.success(msg);
+        fetchAccounts();
+      } else if (data.code === "TOKEN_EXPIRED") {
+        toast.error("Bank session expired. Reconnect your bank to sync.");
+      } else {
+        toast.error(data.error ?? "Sync failed");
+      }
+    } finally {
+      setSyncingId(null);
     }
   };
 
@@ -433,13 +460,26 @@ export function AccountsContent() {
                   >
                     {formatCurrency(balance)}
                   </p>
-                  <Link
-                    href={`/transactions?accountId=${account.id}`}
-                    className="mt-3 flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
-                  >
-                    View transactions
-                    <ArrowRight className="w-3 h-3" />
-                  </Link>
+                  <div className="mt-3 flex items-center justify-between">
+                    <Link
+                      href={`/transactions?accountId=${account.id}`}
+                      className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
+                    >
+                      View transactions
+                      <ArrowRight className="w-3 h-3" />
+                    </Link>
+                    {account.externalAccountId && (
+                      <button
+                        onClick={() => handleSync(account)}
+                        disabled={syncingId === account.id}
+                        className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
+                        title="Sync from bank"
+                      >
+                        <RefreshCw className={`w-3 h-3 ${syncingId === account.id ? "animate-spin" : ""}`} />
+                        {syncingId === account.id ? "Syncing..." : "Sync"}
+                      </button>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             );
