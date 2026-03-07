@@ -4,11 +4,12 @@ import {
   exchangeCode,
   getAccounts,
   getBalance,
+  getTransactions,
   mapAccountType,
   colorForType,
 } from "@/lib/truelayer";
 import { db } from "@/lib/db";
-import { accounts } from "@/lib/schema";
+import { accounts, transactions, categories } from "@/lib/schema";
 import { and, eq } from "drizzle-orm";
 
 export async function GET(req: NextRequest) {
@@ -39,8 +40,33 @@ export async function GET(req: NextRequest) {
 
     const tlAccounts = await getAccounts(accessToken);
 
+    // Find or create "Uncategorized" category once per user
+    let uncategorizedId: number | null = null;
+    const existingCat = await db
+      .select({ id: categories.id })
+      .from(categories)
+      .where(and(eq(categories.userId, userId!), eq(categories.name, "Uncategorized")))
+      .limit(1);
+    if (existingCat.length > 0) {
+      uncategorizedId = existingCat[0].id;
+    } else {
+      const [newCat] = await db
+        .insert(categories)
+        .values({
+          userId: userId!,
+          name: "Uncategorized",
+          type: "expense",
+          color: "#94a3b8",
+          icon: "tag",
+        })
+        .returning({ id: categories.id });
+      uncategorizedId = newCat.id;
+    }
+
     for (const tlAccount of tlAccounts) {
-      // Skip duplicates already imported for this user
+      // Find existing or insert new account
+      let dbAccountId: number;
+
       const existing = await db
         .select({ id: accounts.id })
         .from(accounts)
@@ -52,20 +78,56 @@ export async function GET(req: NextRequest) {
         )
         .limit(1);
 
-      if (existing.length > 0) continue;
+      if (existing.length > 0) {
+        dbAccountId = existing[0].id;
+      } else {
+        const balance = await getBalance(accessToken, tlAccount.account_id);
+        const type = mapAccountType(tlAccount.account_type);
 
-      const balance = await getBalance(accessToken, tlAccount.account_id);
-      const type = mapAccountType(tlAccount.account_type);
+        const [inserted] = await db
+          .insert(accounts)
+          .values({
+            userId: userId!,
+            name: tlAccount.display_name || tlAccount.provider.display_name,
+            type,
+            balance: String(balance?.current ?? 0),
+            color: colorForType(type),
+            externalAccountId: tlAccount.account_id,
+            externalAccessToken: accessToken,
+          })
+          .returning({ id: accounts.id });
 
-      await db.insert(accounts).values({
-        userId: userId!,
-        name: tlAccount.display_name || tlAccount.provider.display_name,
-        type,
-        balance: String(balance?.current ?? 0),
-        color: colorForType(type),
-        externalAccountId: tlAccount.account_id,
-        externalAccessToken: accessToken,
-      });
+        dbAccountId = inserted.id;
+      }
+
+      // Sync transactions for this account
+      const tlTransactions = await getTransactions(accessToken, tlAccount.account_id);
+
+      for (const tlTx of tlTransactions) {
+        const existingTx = await db
+          .select({ id: transactions.id })
+          .from(transactions)
+          .where(
+            and(
+              eq(transactions.userId, userId!),
+              eq(transactions.externalId, tlTx.transaction_id)
+            )
+          )
+          .limit(1);
+        if (existingTx.length > 0) continue;
+
+        const isCredit = tlTx.transaction_type === "CREDIT" || tlTx.amount > 0;
+        await db.insert(transactions).values({
+          userId: userId!,
+          accountId: dbAccountId,
+          description: tlTx.merchant_name || tlTx.description,
+          amount: String(Math.abs(tlTx.amount)),
+          type: isCredit ? "income" : "expense",
+          categoryId: uncategorizedId,
+          date: new Date(tlTx.timestamp),
+          externalId: tlTx.transaction_id,
+        });
+      }
     }
 
     return NextResponse.redirect(successUrl);

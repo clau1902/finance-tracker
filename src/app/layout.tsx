@@ -37,7 +37,20 @@ export default async function RootLayout({
               {children}
             </main>
           </div>
-          <Toaster richColors position="top-right" />
+          <Toaster
+            richColors
+            position="top-center"
+            duration={4000}
+            closeButton
+            toastOptions={{
+              style: {
+                fontSize: "14px",
+                padding: "14px 18px",
+                minWidth: "320px",
+                boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
+              },
+            }}
+          />
         </SessionProvider>
       </body>
     </html>

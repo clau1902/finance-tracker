@@ -22,6 +22,16 @@ export interface TrueLayerBalance {
   current: number;
 }
 
+export interface TrueLayerTransaction {
+  transaction_id: string;
+  timestamp: string;
+  description: string;
+  amount: number;
+  currency: string;
+  transaction_type: "DEBIT" | "CREDIT";
+  merchant_name?: string;
+}
+
 const TYPE_MAP: Record<string, "checking" | "savings" | "credit" | "investment"> = {
   TRANSACTION: "checking",
   SAVINGS: "savings",
@@ -54,7 +64,7 @@ export function buildAuthUrl(clientId: string, redirectUri: string): string {
     client_id: clientId,
     scope: "accounts balance transactions",
     redirect_uri: redirectUri,
-    providers: "uk-oauth-all uk-cs-mock",
+    providers: "mock",
   });
   return `${TRUELAYER_AUTH_URL}/?${params.toString()}`;
 }
@@ -93,6 +103,23 @@ export async function getAccounts(accessToken: string): Promise<TrueLayerAccount
   if (!res.ok) {
     throw new Error(`TrueLayer getAccounts failed: ${res.status}`);
   }
+  const json = await res.json();
+  return json.results ?? [];
+}
+
+/** Fetch transactions for a single account (defaults to last 90 days). */
+export async function getTransactions(
+  accessToken: string,
+  accountId: string
+): Promise<TrueLayerTransaction[]> {
+  const from = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .split("T")[0];
+  const res = await fetch(
+    `${TRUELAYER_API_URL}/data/v1/accounts/${accountId}/transactions?from=${from}`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  if (!res.ok) return [];
   const json = await res.json();
   return json.results ?? [];
 }

@@ -74,6 +74,7 @@ export const transactions = pgTable("transactions", {
   date: timestamp("date").notNull().defaultNow(),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  externalId: text("external_id"),
 });
 
 export const budgets = pgTable("budgets", {
