@@ -26,7 +26,7 @@ describe("buildAuthUrl", () => {
 
   it("includes the sandbox mock provider", () => {
     const url = buildAuthUrl("test-id", "http://localhost/callback");
-    expect(url).toContain("uk-cs-mock");
+    expect(url).toContain("providers=mock");
   });
 
   it("points to the sandbox auth domain", () => {

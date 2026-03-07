@@ -124,7 +124,7 @@ export function BudgetsContent() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          categoryId: form.categoryId,
+          categoryId: parseInt(form.categoryId),
           amount: parseFloat(form.amount),
           month: viewMonth,
           year: viewYear,
