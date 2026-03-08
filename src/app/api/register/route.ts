@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { users, categories, accounts } from "@/lib/schema";
 import { eq } from "drizzle-orm";
 import { registerSchema } from "@/lib/validate";
-import { applyRateLimit } from "@/lib/api";
+import { applyRateLimit, validateOrigin } from "@/lib/api";
 
 const DEFAULT_CATEGORIES = [
   { name: "Salary", type: "income" as const, color: "#6aada6", icon: "briefcase" },
@@ -22,6 +22,10 @@ const DEFAULT_CATEGORIES = [
 ];
 
 export async function POST(req: NextRequest) {
+  if (!validateOrigin(req)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const ip = req.headers.get("x-forwarded-for") ?? "unknown";
   const rateLimitError = applyRateLimit(`register:${ip}`, 5); // 5 registrations/min per IP
   if (rateLimitError) return rateLimitError;

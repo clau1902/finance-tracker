@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { budgets, transactions } from "@/lib/schema";
+import { budgets, transactions, categories } from "@/lib/schema";
 import { eq, and, sum, gte, lte } from "drizzle-orm";
 import { requireAuth, applyRateLimit, validateOrigin } from "@/lib/api";
 import { budgetSchema } from "@/lib/validate";
@@ -82,6 +82,16 @@ export async function POST(req: NextRequest) {
     }
 
     const { categoryId, amount, month, year } = result.data;
+
+    // Verify the category belongs to this user
+    const [category] = await db
+      .select({ id: categories.id })
+      .from(categories)
+      .where(and(eq(categories.id, categoryId), eq(categories.userId, userId!)));
+    if (!category) {
+      return NextResponse.json({ error: "Category not found" }, { status: 404 });
+    }
+
     const [budget] = await db
       .insert(budgets)
       .values({ userId: userId!, categoryId, amount: String(amount), month, year })

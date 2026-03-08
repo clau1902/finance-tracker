@@ -42,7 +42,7 @@ export function LandingPage() {
       <section className="flex-1 flex flex-col items-center justify-center text-center px-6 pt-24 pb-16">
         <div className="inline-flex items-center gap-2 bg-primary/10 text-primary text-xs font-semibold px-3 py-1.5 rounded-full mb-6 border border-primary/20">
           <Zap className="w-3.5 h-3.5" />
-          Open source · Free forever · Your data stays yours
+          Self-hosted · Free forever · Your data stays yours
         </div>
 
         <h1 className="text-5xl sm:text-6xl font-bold tracking-tight max-w-3xl leading-[1.1]">
@@ -187,13 +187,13 @@ export function LandingPage() {
                 icon: BarChart3,
                 color: "text-primary bg-primary/10",
                 title: "Instant Clarity",
-                desc: "See 6 months of income vs expenses, trend vs last month, your spending breakdown by category, and recent transactions — the moment you log in.",
+                desc: "See 6 months of income vs expenses, trend vs last month, per-category spending with month-over-month changes, and your savings rate — the moment you log in.",
               },
               {
                 icon: Target,
                 color: "text-amber-600 bg-amber-100",
                 title: "Budgets That Work",
-                desc: "Set monthly limits per category. Navigate past months to review history. Get warned before you overspend — not after it&apos;s too late.",
+                desc: "Set monthly limits per category. The sidebar flags budgets at 80% and over-limit in real time. Navigate past months to review spending history.",
               },
               {
                 icon: Wallet,
@@ -240,12 +240,12 @@ export function LandingPage() {
             </p>
             <ul className="space-y-3">
               {[
-                "Log and edit transactions in seconds — no manual imports",
-                "Instant search across your entire transaction history",
-                "Get warned before you blow your monthly budget",
-                "Spot income & expense trends across 6 months",
-                "See at a glance where your money actually goes",
-                "Track your true net worth across all accounts",
+                "Log and edit transactions in seconds — search your full history instantly",
+                "Filter by date range, category, account, or type — with one-click presets",
+                "Budget badges warn you at 80% and flag over-limit in the sidebar",
+                "Spot income & expense trends across 6 months at a glance",
+                "Export any filtered view to CSV for your own records",
+                "Track your true net worth across all accounts with assets vs. liabilities",
               ].map((item) => (
                 <li key={item} className="flex items-center gap-3 text-sm">
                   <CheckCircle2 className="w-4 h-4 text-primary flex-shrink-0" />
@@ -258,16 +258,16 @@ export function LandingPage() {
           {/* Stats / numbers */}
           <div className="grid grid-cols-2 gap-4">
             {[
-              { value: "Self-hosted", label: "Your server, your rules", color: "border-primary/30 bg-primary/5" },
-              { value: "Open source", label: "Every line auditable", color: "border-emerald-300/40 bg-emerald-50" },
-              { value: "12", label: "Spending categories included", color: "border-amber-300/40 bg-amber-50" },
-              { value: "$0", label: "Forever free", color: "border-sky-300/40 bg-sky-50" },
+              { value: "Self-hosted", label: "Your server, your rules", valueColor: "text-primary" },
+              { value: "100%", label: "Data stays on your server", valueColor: "text-emerald-500" },
+              { value: "12", label: "Spending categories included", valueColor: "text-amber-500" },
+              { value: "$0", label: "Forever free", valueColor: "text-sky-500" },
             ].map((stat) => (
               <div
                 key={stat.label}
-                className={`rounded-2xl border p-5 text-center ${stat.color}`}
+                className="rounded-2xl border border-border/60 bg-card p-5 text-center shadow-sm"
               >
-                <p className="text-2xl font-bold tracking-tight leading-tight">{stat.value}</p>
+                <p className={`text-2xl font-bold tracking-tight leading-tight ${stat.valueColor}`}>{stat.value}</p>
                 <p className="text-xs text-muted-foreground mt-1 leading-snug">{stat.label}</p>
               </div>
             ))}
@@ -296,7 +296,7 @@ export function LandingPage() {
               asChild
               variant="outline"
               size="lg"
-              className="px-6 border-sidebar-border text-sidebar bg-sidebar-foreground/90 hover:bg-sidebar-foreground"
+              className="px-6 border-white/30 text-white bg-transparent hover:bg-white/10"
             >
               <Link href="/auth/signin">Sign in</Link>
             </Button>

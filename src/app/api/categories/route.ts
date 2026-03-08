@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
   if (error) return error;
 
   const ip = req.headers.get("x-forwarded-for") ?? "unknown";
-  const rl = applyRateLimit(`categories-post:${ip}`);
+  const rl = applyRateLimit(`categories-post:${userId}:${ip}`, 20);
   if (rl) return rl;
 
   try {

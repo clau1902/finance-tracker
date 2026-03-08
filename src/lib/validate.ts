@@ -63,5 +63,10 @@ export const categoryPatchSchema = z.object({
 export const registerSchema = z.object({
   name: z.string().min(1).max(100),
   email: z.string().email(),
-  password: z.string().min(8).max(100),
+  password: z
+    .string()
+    .min(12, "Password must be at least 12 characters")
+    .max(100)
+    .regex(/[A-Za-z]/, "Password must contain a letter")
+    .regex(/[0-9]/, "Password must contain a number"),
 });

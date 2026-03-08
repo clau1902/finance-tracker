@@ -15,8 +15,12 @@ export function RegisterForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (form.password.length < 8) {
-      setError("Password must be at least 8 characters.");
+    if (form.password.length < 12) {
+      setError("Password must be at least 12 characters.");
+      return;
+    }
+    if (!/[A-Za-z]/.test(form.password) || !/[0-9]/.test(form.password)) {
+      setError("Password must contain at least one letter and one number.");
       return;
     }
     setLoading(true);
@@ -80,7 +84,7 @@ export function RegisterForm() {
           autoComplete="new-password"
           value={form.password}
           onChange={(e) => setForm({ ...form, password: e.target.value })}
-          placeholder="At least 8 characters"
+          placeholder="At least 12 characters, include a number"
           required
         />
       </div>

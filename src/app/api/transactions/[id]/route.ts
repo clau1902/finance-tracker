@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { transactions, accounts } from "@/lib/schema";
+import { transactions, accounts, categories } from "@/lib/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { requireAuth, validateOrigin } from "@/lib/api";
 import { transactionPatchSchema } from "@/lib/validate";
@@ -87,6 +87,29 @@ export async function PATCH(
       .where(eq(accounts.id, existing.accountId));
 
     const data = result.data;
+
+    // Verify new accountId belongs to this user (if being changed)
+    if (data.accountId && data.accountId !== existing.accountId) {
+      const [acct] = await db
+        .select({ id: accounts.id })
+        .from(accounts)
+        .where(and(eq(accounts.id, data.accountId), eq(accounts.userId, userId!)));
+      if (!acct) {
+        return NextResponse.json({ error: "Account not found" }, { status: 404 });
+      }
+    }
+
+    // Verify new categoryId belongs to this user (if being changed to a non-null value)
+    if (data.categoryId != null && data.categoryId !== existing.categoryId) {
+      const [cat] = await db
+        .select({ id: categories.id })
+        .from(categories)
+        .where(and(eq(categories.id, data.categoryId), eq(categories.userId, userId!)));
+      if (!cat) {
+        return NextResponse.json({ error: "Category not found" }, { status: 404 });
+      }
+    }
+
     const [updated] = await db
       .update(transactions)
       .set({

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { transactions, accounts } from "@/lib/schema";
+import { transactions, accounts, categories } from "@/lib/schema";
 import { eq, desc, and, gte, lte, sql, ilike, or } from "drizzle-orm";
 import { requireAuth, applyRateLimit, validateOrigin } from "@/lib/api";
 import { transactionSchema } from "@/lib/validate";
@@ -81,6 +81,17 @@ export async function POST(req: NextRequest) {
       .where(and(eq(accounts.id, accountId), eq(accounts.userId, userId!)));
     if (!account) {
       return NextResponse.json({ error: "Account not found" }, { status: 404 });
+    }
+
+    // Verify the category belongs to this user (if provided)
+    if (categoryId) {
+      const [cat] = await db
+        .select({ id: categories.id })
+        .from(categories)
+        .where(and(eq(categories.id, categoryId), eq(categories.userId, userId!)));
+      if (!cat) {
+        return NextResponse.json({ error: "Category not found" }, { status: 404 });
+      }
     }
 
     const [transaction] = await db
