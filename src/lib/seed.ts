@@ -17,18 +17,18 @@ async function seed() {
   const insertedCategories = await db
     .insert(categories)
     .values([
-      { userId: user.id, name: "Salary", type: "income", color: "#0d9488", icon: "briefcase" },
-      { userId: user.id, name: "Freelance", type: "income", color: "#0891b2", icon: "laptop" },
-      { userId: user.id, name: "Investments", type: "income", color: "#059669", icon: "trending-up" },
-      { userId: user.id, name: "Groceries", type: "expense", color: "#d97706", icon: "shopping-cart" },
-      { userId: user.id, name: "Rent", type: "expense", color: "#dc2626", icon: "home" },
-      { userId: user.id, name: "Transport", type: "expense", color: "#7c3aed", icon: "car" },
-      { userId: user.id, name: "Dining Out", type: "expense", color: "#db2777", icon: "utensils" },
-      { userId: user.id, name: "Entertainment", type: "expense", color: "#ea580c", icon: "film" },
-      { userId: user.id, name: "Utilities", type: "expense", color: "#475569", icon: "zap" },
-      { userId: user.id, name: "Healthcare", type: "expense", color: "#0284c7", icon: "heart-pulse" },
-      { userId: user.id, name: "Shopping", type: "expense", color: "#c026d3", icon: "shopping-bag" },
-      { userId: user.id, name: "Subscriptions", type: "expense", color: "#0f766e", icon: "repeat" },
+      { userId: user.id, name: "Salary", type: "income", color: "#6aada6", icon: "briefcase" },
+      { userId: user.id, name: "Freelance", type: "income", color: "#6097b5", icon: "laptop" },
+      { userId: user.id, name: "Investments", type: "income", color: "#5ea882", icon: "trending-up" },
+      { userId: user.id, name: "Groceries", type: "expense", color: "#c49540", icon: "shopping-cart" },
+      { userId: user.id, name: "Rent", type: "expense", color: "#b87272", icon: "home" },
+      { userId: user.id, name: "Transport", type: "expense", color: "#8b79c0", icon: "car" },
+      { userId: user.id, name: "Dining Out", type: "expense", color: "#be7096", icon: "utensils" },
+      { userId: user.id, name: "Entertainment", type: "expense", color: "#c07a55", icon: "film" },
+      { userId: user.id, name: "Utilities", type: "expense", color: "#7b93a8", icon: "zap" },
+      { userId: user.id, name: "Healthcare", type: "expense", color: "#5b90bf", icon: "heart-pulse" },
+      { userId: user.id, name: "Shopping", type: "expense", color: "#a06db5", icon: "shopping-bag" },
+      { userId: user.id, name: "Subscriptions", type: "expense", color: "#5aa09a", icon: "repeat" },
     ])
     .returning();
   console.log(`Inserted ${insertedCategories.length} categories`);

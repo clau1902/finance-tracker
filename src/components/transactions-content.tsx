@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
-import { Search, Trash2, Pencil, X, FilterX, Download, ChevronDown } from "lucide-react";
+import { Search, Trash2, Pencil, X, FilterX, Download, ChevronDown, CalendarRange } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -46,6 +46,7 @@ interface Transaction {
   notes?: string | null;
   categoryId?: number | null;
   accountId?: number | null;
+  externalId?: string | null;
   category?: { name: string; color: string; icon: string } | null;
   account?: { name: string } | null;
 }
@@ -108,25 +109,52 @@ export function TransactionsContent() {
   const [typeFilter, setTypeFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [accountFilter, setAccountFilter] = useState(initialAccountId);
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [editTx, setEditTx] = useState<Transaction | null>(null);
   const [editOpen, setEditOpen] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const PAGE_SIZE = 50;
 
   const fetchTransactions = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ limit: "100" });
+      const params = new URLSearchParams({ limit: String(PAGE_SIZE) });
       if (typeFilter !== "all") params.set("type", typeFilter);
       if (categoryFilter !== "all") params.set("categoryId", categoryFilter);
       if (accountFilter !== "all") params.set("accountId", accountFilter);
+      if (fromDate) params.set("from", fromDate);
+      if (toDate) params.set("to", toDate);
 
       const res = await fetch(`/api/transactions?${params}`);
       const data = await res.json();
       setTransactions(data);
+      setHasMore(data.length === PAGE_SIZE);
     } finally {
       setLoading(false);
     }
-  }, [typeFilter, categoryFilter, accountFilter]);
+  }, [typeFilter, categoryFilter, accountFilter, fromDate, toDate]);
+
+  const loadMore = useCallback(async () => {
+    setLoadingMore(true);
+    try {
+      const params = new URLSearchParams({ limit: String(PAGE_SIZE), offset: String(transactions.length) });
+      if (typeFilter !== "all") params.set("type", typeFilter);
+      if (categoryFilter !== "all") params.set("categoryId", categoryFilter);
+      if (accountFilter !== "all") params.set("accountId", accountFilter);
+      if (fromDate) params.set("from", fromDate);
+      if (toDate) params.set("to", toDate);
+
+      const res = await fetch(`/api/transactions?${params}`);
+      const data = await res.json();
+      setTransactions((prev) => [...prev, ...data]);
+      setHasMore(data.length === PAGE_SIZE);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [transactions.length, typeFilter, categoryFilter, accountFilter, fromDate, toDate]);
 
   useEffect(() => {
     fetchTransactions();
@@ -185,13 +213,15 @@ export function TransactionsContent() {
   };
 
   const hasActiveFilters =
-    search !== "" || typeFilter !== "all" || categoryFilter !== "all" || accountFilter !== "all";
+    search !== "" || typeFilter !== "all" || categoryFilter !== "all" || accountFilter !== "all" || fromDate !== "" || toDate !== "";
 
   const clearFilters = () => {
     setSearch("");
     setTypeFilter("all");
     setCategoryFilter("all");
     setAccountFilter("all");
+    setFromDate("");
+    setToDate("");
   };
 
   const filtered = transactions.filter((tx) =>
@@ -324,6 +354,25 @@ export function TransactionsContent() {
             ))}
           </SelectContent>
         </Select>
+        {/* Date range */}
+        <div className="flex items-center gap-1.5">
+          <CalendarRange className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+          <Input
+            type="date"
+            value={fromDate}
+            onChange={(e) => setFromDate(e.target.value)}
+            className="w-36 h-9 text-sm"
+            title="From date"
+          />
+          <span className="text-muted-foreground text-xs">–</span>
+          <Input
+            type="date"
+            value={toDate}
+            onChange={(e) => setToDate(e.target.value)}
+            className="w-36 h-9 text-sm"
+            title="To date"
+          />
+        </div>
         {hasActiveFilters && (
           <Button variant="ghost" size="sm" onClick={clearFilters} className="gap-1.5 text-muted-foreground hover:text-foreground">
             <FilterX className="w-3.5 h-3.5" />
@@ -360,7 +409,7 @@ export function TransactionsContent() {
             <div>
               {groups.map((group) => (
                 <div key={group.label}>
-                  <div className="px-5 py-2 bg-secondary/40 border-b border-border/40">
+                  <div className="px-5 py-2 bg-secondary/40 border-b border-border/40 sticky top-0 z-10">
                     <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                       {group.label}
                     </span>
@@ -375,13 +424,18 @@ export function TransactionsContent() {
                           className="flex items-center gap-3 px-5 py-3.5 hover:bg-secondary/40 transition-colors group"
                         >
                           <div
-                            className="w-9 h-9 rounded-xl flex-shrink-0 flex items-center justify-center text-white text-sm font-semibold"
-                            style={{ backgroundColor: tx.category?.color ?? "#64748b" }}
+                            className="w-9 h-9 rounded-xl flex-shrink-0 flex items-center justify-center text-white text-base italic"
+                            style={{ backgroundColor: tx.category?.color ?? "#6aada6", fontFamily: "var(--font-playfair)" }}
                           >
                             {tx.description.charAt(0).toUpperCase()}
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium truncate">{tx.description}</p>
+                            {tx.notes && (
+                              <p className="text-xs text-muted-foreground/70 truncate mt-0.5 italic">
+                                {tx.notes}
+                              </p>
+                            )}
                             <div className="flex items-center gap-1.5 mt-0.5">
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
@@ -479,6 +533,19 @@ export function TransactionsContent() {
                   </div>
                 </div>
               ))}
+              {hasMore && (
+                <div className="flex justify-center py-4 border-t border-border/40">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={loadMore}
+                    disabled={loadingMore}
+                    className="gap-1.5"
+                  >
+                    {loadingMore ? "Loading…" : "Load more"}
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </CardContent>

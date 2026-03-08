@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Pencil } from "lucide-react";
+import { Plus, Pencil, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -43,6 +43,7 @@ interface Transaction {
   notes?: string | null;
   categoryId?: number | null;
   accountId?: number | null;
+  externalId?: string | null;
 }
 
 interface AddTransactionDialogProps {
@@ -61,6 +62,7 @@ export function AddTransactionDialog({
   trigger,
 }: AddTransactionDialogProps) {
   const isEditing = !!transaction;
+  const isFromBank = !!transaction?.externalId;
   const [internalOpen, setInternalOpen] = useState(false);
   const open = externalOpen !== undefined ? externalOpen : internalOpen;
   const setOpen = externalOnOpenChange ?? setInternalOpen;
@@ -166,8 +168,18 @@ export function AddTransactionDialog({
           <DialogTitle>{isEditing ? "Edit Transaction" : "New Transaction"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-2">
+          {/* Bank import notice */}
+          {isFromBank && (
+            <div className="flex items-start gap-2.5 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5 text-amber-800 dark:bg-amber-950/30 dark:border-amber-800 dark:text-amber-300">
+              <Lock className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+              <p className="text-xs leading-relaxed">
+                This transaction was imported from your bank. The amount, date, and description are locked to preserve accuracy. You can edit the category and notes.
+              </p>
+            </div>
+          )}
+
           {/* Type toggle */}
-          <div className="flex rounded-lg overflow-hidden border border-border">
+          <div className={`flex rounded-lg overflow-hidden border border-border ${isFromBank ? "opacity-50 pointer-events-none" : ""}`}>
             <button
               type="button"
               className={`flex-1 py-2 text-sm font-medium transition-colors ${
@@ -200,6 +212,7 @@ export function AddTransactionDialog({
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
                 placeholder="e.g. Grocery shopping"
                 required
+                disabled={isFromBank}
               />
             </div>
 
@@ -213,6 +226,7 @@ export function AddTransactionDialog({
                 onChange={(e) => setForm({ ...form, amount: e.target.value })}
                 placeholder="0.00"
                 required
+                disabled={isFromBank}
               />
             </div>
 
@@ -223,6 +237,7 @@ export function AddTransactionDialog({
                 value={form.date}
                 onChange={(e) => setForm({ ...form, date: e.target.value })}
                 required
+                disabled={isFromBank}
               />
             </div>
 
@@ -231,6 +246,7 @@ export function AddTransactionDialog({
               <Select
                 value={form.accountId}
                 onValueChange={(v) => setForm({ ...form, accountId: v })}
+                disabled={isFromBank}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select account" />

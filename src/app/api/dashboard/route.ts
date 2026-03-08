@@ -128,16 +128,37 @@ export async function GET(req: NextRequest) {
       with: { category: true },
     });
 
-    const catMap: Record<string, { name: string; color: string; total: number }> = {};
+    // Spending by category last month (for trends)
+    const lastMonthCategorySpending = await db.query.transactions.findMany({
+      where: and(
+        eq(transactions.userId, userId!),
+        eq(transactions.type, "expense"),
+        gte(transactions.date, startOfLastMonth),
+        lte(transactions.date, endOfLastMonth)
+      ),
+      with: { category: true },
+    });
+
+    const catMap: Record<string, { name: string; color: string; total: number; lastMonthTotal: number }> = {};
     for (const tx of categorySpending) {
       const cat = tx.category;
       if (!cat) continue;
       if (!catMap[cat.name]) {
-        catMap[cat.name] = { name: cat.name, color: cat.color, total: 0 };
+        catMap[cat.name] = { name: cat.name, color: cat.color, total: 0, lastMonthTotal: 0 };
       }
       catMap[cat.name].total += parseFloat(String(tx.amount));
     }
-    const spendingByCategory = Object.values(catMap).sort((a, b) => b.total - a.total);
+    for (const tx of lastMonthCategorySpending) {
+      const cat = tx.category;
+      if (!cat) continue;
+      if (!catMap[cat.name]) {
+        catMap[cat.name] = { name: cat.name, color: cat.color, total: 0, lastMonthTotal: 0 };
+      }
+      catMap[cat.name].lastMonthTotal += parseFloat(String(tx.amount));
+    }
+    const spendingByCategory = Object.values(catMap)
+      .filter((c) => c.total > 0)
+      .sort((a, b) => b.total - a.total);
 
     return NextResponse.json({
       totalBalance,

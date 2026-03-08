@@ -23,9 +23,10 @@ export function TransactionRow({ transaction, onDelete }: TransactionRowProps) {
     <div className="flex items-center gap-3 px-5 py-3.5 hover:bg-secondary/40 transition-colors group">
       {/* Category dot */}
       <div
-        className="w-9 h-9 rounded-xl flex-shrink-0 flex items-center justify-center text-white text-xs font-semibold"
+        className="w-9 h-9 rounded-xl flex-shrink-0 flex items-center justify-center text-white text-base italic"
         style={{
-          backgroundColor: transaction.category?.color ?? "#64748b",
+          backgroundColor: transaction.category?.color ?? "#6aada6",
+          fontFamily: "var(--font-playfair)",
         }}
       >
         {transaction.description.charAt(0).toUpperCase()}

@@ -21,6 +21,7 @@ export async function GET(req: NextRequest) {
     const from = searchParams.get("from");
     const to = searchParams.get("to");
     const limit = Math.min(parseInt(searchParams.get("limit") || "50"), 200);
+    const offset = parseInt(searchParams.get("offset") || "0");
 
     const conditions = [eq(transactions.userId, userId!)];
     if (accountId) conditions.push(eq(transactions.accountId, parseInt(accountId)));
@@ -34,6 +35,7 @@ export async function GET(req: NextRequest) {
       with: { category: true, account: true },
       orderBy: [desc(transactions.date)],
       limit,
+      offset,
     });
 
     return NextResponse.json(rows);

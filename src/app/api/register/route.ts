@@ -7,18 +7,18 @@ import { registerSchema } from "@/lib/validate";
 import { applyRateLimit } from "@/lib/api";
 
 const DEFAULT_CATEGORIES = [
-  { name: "Salary", type: "income" as const, color: "#0d9488", icon: "briefcase" },
-  { name: "Freelance", type: "income" as const, color: "#0891b2", icon: "laptop" },
-  { name: "Investments", type: "income" as const, color: "#059669", icon: "trending-up" },
-  { name: "Groceries", type: "expense" as const, color: "#d97706", icon: "shopping-cart" },
-  { name: "Rent", type: "expense" as const, color: "#dc2626", icon: "home" },
-  { name: "Transport", type: "expense" as const, color: "#7c3aed", icon: "car" },
-  { name: "Dining Out", type: "expense" as const, color: "#db2777", icon: "utensils" },
-  { name: "Entertainment", type: "expense" as const, color: "#ea580c", icon: "film" },
-  { name: "Utilities", type: "expense" as const, color: "#475569", icon: "zap" },
-  { name: "Healthcare", type: "expense" as const, color: "#0284c7", icon: "heart-pulse" },
-  { name: "Shopping", type: "expense" as const, color: "#c026d3", icon: "shopping-bag" },
-  { name: "Subscriptions", type: "expense" as const, color: "#0f766e", icon: "repeat" },
+  { name: "Salary", type: "income" as const, color: "#6aada6", icon: "briefcase" },
+  { name: "Freelance", type: "income" as const, color: "#6097b5", icon: "laptop" },
+  { name: "Investments", type: "income" as const, color: "#5ea882", icon: "trending-up" },
+  { name: "Groceries", type: "expense" as const, color: "#c49540", icon: "shopping-cart" },
+  { name: "Rent", type: "expense" as const, color: "#b87272", icon: "home" },
+  { name: "Transport", type: "expense" as const, color: "#8b79c0", icon: "car" },
+  { name: "Dining Out", type: "expense" as const, color: "#be7096", icon: "utensils" },
+  { name: "Entertainment", type: "expense" as const, color: "#c07a55", icon: "film" },
+  { name: "Utilities", type: "expense" as const, color: "#7b93a8", icon: "zap" },
+  { name: "Healthcare", type: "expense" as const, color: "#5b90bf", icon: "heart-pulse" },
+  { name: "Shopping", type: "expense" as const, color: "#a06db5", icon: "shopping-bag" },
+  { name: "Subscriptions", type: "expense" as const, color: "#5aa09a", icon: "repeat" },
 ];
 
 export async function POST(req: NextRequest) {

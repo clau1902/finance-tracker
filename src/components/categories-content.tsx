@@ -319,8 +319,8 @@ export function CategoriesContent() {
                     <Card key={cat.id} className="border-border/60 shadow-sm">
                       <CardContent className="p-4 flex items-center gap-3">
                         <div
-                          className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-white font-bold text-sm"
-                          style={{ backgroundColor: cat.color }}
+                          className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-white text-base italic"
+                          style={{ backgroundColor: cat.color, fontFamily: "var(--font-playfair)" }}
                         >
                           {cat.name.charAt(0).toUpperCase()}
                         </div>

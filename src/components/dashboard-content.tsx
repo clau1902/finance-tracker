@@ -26,10 +26,6 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  Legend,
 } from "recharts";
 import { TransactionRow } from "@/components/transaction-row";
 import { AddTransactionDialog } from "@/components/add-transaction-dialog";
@@ -47,7 +43,7 @@ interface DashboardData {
   accounts: Account[];
   recentTransactions: Transaction[];
   monthlyTrend: { month: string; income: number; expenses: number }[];
-  spendingByCategory: { name: string; color: string; total: number }[];
+  spendingByCategory: { name: string; color: string; total: number; lastMonthTotal: number }[];
 }
 
 interface Account {
@@ -163,6 +159,10 @@ export function DashboardContent() {
 
   const incomePct = trendPct(data.monthIncome, data.lastMonthIncome);
   const expensePct = trendPct(data.monthExpense, data.lastMonthExpense);
+  const savingsRate =
+    data.monthIncome > 0
+      ? Math.round((data.monthlySavings / data.monthIncome) * 100)
+      : null;
 
   const summaryCards = [
     {
@@ -198,6 +198,16 @@ export function DashboardContent() {
       iconColor: data.monthlySavings >= 0 ? "text-teal-600" : "text-rose-500",
       iconBg: data.monthlySavings >= 0 ? "bg-teal-100" : "bg-rose-100",
       trend: null,
+      subtitle:
+        savingsRate !== null
+          ? `${savingsRate}% savings rate`
+          : null,
+      subtitleColor:
+        savingsRate !== null && savingsRate >= 20
+          ? "text-emerald-600"
+          : savingsRate !== null && savingsRate >= 0
+          ? "text-amber-600"
+          : "text-rose-500",
     },
   ];
 
@@ -259,6 +269,11 @@ export function DashboardContent() {
                         {pct.toFixed(1)}% vs last month
                       </p>
                     )}
+                    {"subtitle" in card && card.subtitle && (
+                      <p className={`text-xs mt-1 font-medium ${"subtitleColor" in card ? card.subtitleColor : "text-muted-foreground"}`}>
+                        {card.subtitle}
+                      </p>
+                    )}
                   </div>
                   <div className={`w-10 h-10 rounded-xl ${card.iconBg} flex items-center justify-center`}>
                     <Icon className={`w-5 h-5 ${card.iconColor}`} />
@@ -311,33 +326,40 @@ export function DashboardContent() {
           </CardHeader>
           <CardContent>
             {data.spendingByCategory.length > 0 ? (
-              <ResponsiveContainer width="100%" height={220}>
-                <PieChart>
-                  <Pie
-                    data={data.spendingByCategory}
-                    cx="50%"
-                    cy="45%"
-                    innerRadius={55}
-                    outerRadius={80}
-                    paddingAngle={2}
-                    dataKey="total"
-                    nameKey="name"
-                  >
-                    {data.spendingByCategory.map((entry, index) => (
-                      <Cell key={index} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    formatter={(value) => [formatCurrency(Number(value)), ""]}
-                    contentStyle={{ borderRadius: "8px", border: "1px solid #e2e8f0", fontSize: "12px" }}
-                  />
-                  <Legend
-                    iconType="circle"
-                    iconSize={8}
-                    wrapperStyle={{ fontSize: "11px" }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+              <div className="space-y-2.5">
+                {data.spendingByCategory.slice(0, 6).map((cat) => {
+                  const pct = cat.lastMonthTotal > 0
+                    ? ((cat.total - cat.lastMonthTotal) / cat.lastMonthTotal) * 100
+                    : null;
+                  const isUp = pct !== null && pct > 0;
+                  return (
+                    <div key={cat.name} className="flex items-center gap-2.5">
+                      <span
+                        className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: cat.color }}
+                      />
+                      <span className="text-sm flex-1 truncate">{cat.name}</span>
+                      <span className="text-sm font-medium tabular-nums">
+                        {formatCurrency(cat.total)}
+                      </span>
+                      {pct !== null && (
+                        <span
+                          className={`text-xs font-medium w-14 text-right tabular-nums ${
+                            isUp ? "text-rose-500" : "text-emerald-600"
+                          }`}
+                        >
+                          {isUp ? "▲" : "▼"} {Math.abs(pct).toFixed(0)}%
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+                {data.spendingByCategory.length > 6 && (
+                  <p className="text-xs text-muted-foreground pt-1">
+                    +{data.spendingByCategory.length - 6} more categories
+                  </p>
+                )}
+              </div>
             ) : (
               <div className="h-[220px] flex flex-col items-center justify-center gap-3 text-center px-4">
                 <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center">

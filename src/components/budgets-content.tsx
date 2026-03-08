@@ -73,7 +73,8 @@ export function BudgetsContent() {
     setLoading(true);
     try {
       const res = await fetch(`/api/budgets?month=${month}&year=${year}`);
-      setBudgets(await res.json());
+      const data = await res.json();
+      setBudgets(Array.isArray(data) ? data : []);
     } finally {
       setLoading(false);
     }
@@ -84,7 +85,7 @@ export function BudgetsContent() {
     fetch("/api/categories")
       .then((r) => r.json())
       .then((cats: Category[]) =>
-        setCategories(cats.filter((c) => c.type === "expense"))
+        setCategories(Array.isArray(cats) ? cats.filter((c) => c.type === "expense") : [])
       );
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewMonth, viewYear]);
@@ -342,8 +343,8 @@ export function BudgetsContent() {
                       }}
                     >
                       <span
-                        className="text-sm font-bold"
-                        style={{ color: budget.category?.color ?? "#64748b" }}
+                        className="text-base italic"
+                        style={{ color: budget.category?.color ?? "#64748b", fontFamily: "var(--font-playfair)" }}
                       >
                         {budget.category?.name.charAt(0) ?? "?"}
                       </span>
