@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { transactions, accounts } from "@/lib/schema";
-import { eq, desc, and, gte, lte, sql } from "drizzle-orm";
+import { eq, desc, and, gte, lte, sql, ilike, or } from "drizzle-orm";
 import { requireAuth, applyRateLimit, validateOrigin } from "@/lib/api";
 import { transactionSchema } from "@/lib/validate";
 
@@ -29,6 +29,11 @@ export async function GET(req: NextRequest) {
     if (categoryId) conditions.push(eq(transactions.categoryId, parseInt(categoryId)));
     if (from) conditions.push(gte(transactions.date, new Date(from)));
     if (to) conditions.push(lte(transactions.date, new Date(to)));
+    const search = searchParams.get("search");
+    if (search) {
+      const pattern = `%${search}%`;
+      conditions.push(or(ilike(transactions.description, pattern), ilike(transactions.notes, pattern))!);
+    }
 
     const rows = await db.query.transactions.findMany({
       where: and(...conditions),

@@ -106,6 +106,7 @@ export function TransactionsContent() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [accountFilter, setAccountFilter] = useState(initialAccountId);
@@ -114,6 +115,7 @@ export function TransactionsContent() {
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [editTx, setEditTx] = useState<Transaction | null>(null);
   const [editOpen, setEditOpen] = useState(false);
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const PAGE_SIZE = 50;
@@ -127,6 +129,7 @@ export function TransactionsContent() {
       if (accountFilter !== "all") params.set("accountId", accountFilter);
       if (fromDate) params.set("from", fromDate);
       if (toDate) params.set("to", toDate);
+      if (debouncedSearch) params.set("search", debouncedSearch);
 
       const res = await fetch(`/api/transactions?${params}`);
       const data = await res.json();
@@ -135,7 +138,7 @@ export function TransactionsContent() {
     } finally {
       setLoading(false);
     }
-  }, [typeFilter, categoryFilter, accountFilter, fromDate, toDate]);
+  }, [typeFilter, categoryFilter, accountFilter, fromDate, toDate, debouncedSearch]);
 
   const loadMore = useCallback(async () => {
     setLoadingMore(true);
@@ -157,10 +160,28 @@ export function TransactionsContent() {
   }, [transactions.length, typeFilter, categoryFilter, accountFilter, fromDate, toDate]);
 
   useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 350);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  useEffect(() => {
     fetchTransactions();
     fetch("/api/categories").then((r) => r.json()).then(setCategories);
     fetch("/api/accounts").then((r) => r.json()).then(setAccounts);
   }, [fetchTransactions]);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if (e.key === "n" || e.key === "N") {
+        e.preventDefault();
+        setAddDialogOpen(true);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
 
   const handleDelete = async () => {
     if (deleteId === null) return;
@@ -186,6 +207,7 @@ export function TransactionsContent() {
       body: JSON.stringify({ categoryId }),
     });
     if (res.ok) {
+      toast.success(categoryId ? "Category updated" : "Category removed");
       fetchTransactions();
     } else {
       toast.error("Failed to update category");
@@ -224,12 +246,7 @@ export function TransactionsContent() {
     setToDate("");
   };
 
-  const filtered = transactions.filter((tx) =>
-    search
-      ? tx.description.toLowerCase().includes(search.toLowerCase()) ||
-        tx.category?.name.toLowerCase().includes(search.toLowerCase())
-      : true
-  );
+  const filtered = transactions;
 
   const totalIncome = filtered
     .filter((tx) => tx.type === "income")
@@ -268,7 +285,11 @@ export function TransactionsContent() {
               Export
             </Button>
           )}
-          <AddTransactionDialog onSuccess={fetchTransactions} />
+          <AddTransactionDialog
+            open={addDialogOpen}
+            onOpenChange={setAddDialogOpen}
+            onSuccess={fetchTransactions}
+          />
         </div>
       </div>
 
@@ -373,6 +394,22 @@ export function TransactionsContent() {
             title="To date"
           />
         </div>
+        <div className="flex gap-1.5 flex-wrap">
+          {[
+            { label: "This month", getRange: () => { const n = new Date(); return { from: `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-01`, to: '' }; } },
+            { label: "Last month", getRange: () => { const n = new Date(); const m = n.getMonth() === 0 ? 11 : n.getMonth()-1; const y = n.getMonth() === 0 ? n.getFullYear()-1 : n.getFullYear(); const last = new Date(y, m+1, 0); return { from: `${y}-${String(m+1).padStart(2,'0')}-01`, to: `${y}-${String(m+1).padStart(2,'0')}-${String(last.getDate()).padStart(2,'0')}` }; } },
+            { label: "Last 3 months", getRange: () => { const n = new Date(); const from = new Date(n.getFullYear(), n.getMonth()-2, 1); return { from: `${from.getFullYear()}-${String(from.getMonth()+1).padStart(2,'0')}-01`, to: '' }; } },
+            { label: "This year", getRange: () => { return { from: `${new Date().getFullYear()}-01-01`, to: '' }; } },
+          ].map(preset => (
+            <button
+              key={preset.label}
+              onClick={() => { const r = preset.getRange(); setFromDate(r.from); setToDate(r.to); }}
+              className="text-xs px-2 py-1 rounded-md border border-border/60 bg-secondary/60 hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {preset.label}
+            </button>
+          ))}
+        </div>
         {hasActiveFilters && (
           <Button variant="ghost" size="sm" onClick={clearFilters} className="gap-1.5 text-muted-foreground hover:text-foreground">
             <FilterX className="w-3.5 h-3.5" />
@@ -402,7 +439,9 @@ export function TransactionsContent() {
                   Clear filters
                 </Button>
               ) : (
-                <AddTransactionDialog onSuccess={fetchTransactions} />
+                <Button size="sm" onClick={() => setAddDialogOpen(true)} className="gap-1.5">
+                  Add transaction
+                </Button>
               )}
             </div>
           ) : (
