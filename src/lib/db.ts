@@ -10,7 +10,12 @@ const pool = new Pool({
   max: 10,
   idleTimeoutMillis: 30_000,
   connectionTimeoutMillis: 3_000,
-  ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: true } : false,
+  // DATABASE_SSL=false disables SSL for internal Docker networking
+  ssl: process.env.DATABASE_SSL === "false"
+    ? false
+    : process.env.NODE_ENV === "production"
+    ? { rejectUnauthorized: true }
+    : false,
 });
 
 export const db = drizzle(pool, { schema });

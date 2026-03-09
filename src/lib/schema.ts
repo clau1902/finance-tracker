@@ -6,6 +6,7 @@ import {
   timestamp,
   integer,
   pgEnum,
+  boolean,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -88,6 +89,17 @@ export const budgets = pgTable("budgets", {
   amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
   month: integer("month").notNull(),
   year: integer("year").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const passwordResetTokens = pgTable("password_reset_tokens", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id")
+    .references(() => users.id, { onDelete: "cascade" })
+    .notNull(),
+  token: text("token").notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  used: boolean("used").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

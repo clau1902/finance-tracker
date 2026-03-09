@@ -1,11 +1,12 @@
 # FinanceTrack
 
-A personal finance tracker that helps you understand where your money goes — built with Next.js, PostgreSQL, and open banking via TrueLayer.
+A self-hosted personal finance tracker — built with Next.js, PostgreSQL, and Docker.
 
 ![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-blue?logo=postgresql)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind-v4-38bdf8?logo=tailwindcss)
+![Docker](https://img.shields.io/badge/Docker-ready-2496ed?logo=docker)
 
 ---
 
@@ -13,14 +14,13 @@ A personal finance tracker that helps you understand where your money goes — b
 
 FinanceTrack gives you a calm, clutter-free view of your personal finances:
 
-- **Dashboard** — monthly income vs. expenses chart with trend % vs last month, spending breakdown by category, recent transactions, account balances, and skeleton loading states
-- **Transactions** — log, edit, and delete income and expenses; filter by type, category, account, and date range; quick date presets (this month, last month, etc.); search with debounce; date-grouped list; inline category reassignment; CSV export; bank-imported transactions have financial fields locked to preserve accuracy
-- **Budgets** — set monthly spending limits per category; navigate between months; overall status summary (on track / warning / over); days remaining in month; skeleton loading; visual progress bars with colour-coded alerts
-- **Accounts** — add accounts manually or connect via open banking; edit, delete (with confirmation), and sync connected accounts; net worth with assets vs. liabilities breakdown; "View transactions" link per account
+- **Dashboard** — guided onboarding checklist for new users (set balance → log transaction → create budget) that auto-dismisses on completion; monthly income vs. expenses chart (6 months); trend % vs last month per card; savings rate; per-category spending with month-over-month change indicators; recent transactions; account balances; skeleton loading states
+- **Transactions** — log, edit, and delete income and expenses; server-side search across full history with debounce; filter by type, category, account, and date range; quick date presets (this month, last month, last 3 months, this year); inline category reassignment with toast feedback; notes visible in list; CSV export; pagination with load more; date-grouped list; keyboard shortcut `N` to add a transaction
+- **Budgets** — set monthly spending limits per category; navigate between months; overall status summary (on track / warning / over); days remaining in month; skeleton loading; visual progress bars with colour-coded alerts; sidebar badge shows live alert count (amber at 80%, red when over limit)
+- **Accounts** — add and manage accounts manually; edit, delete (with confirmation); net worth with assets vs. liabilities breakdown; "View transactions" link per account
 - **Categories** — full CRUD for income and expense categories; 12-colour visual picker; deleting a category unlinks transactions gracefully
-- **Open banking** — connect real bank accounts via TrueLayer; accounts and 90 days of transactions are imported automatically; re-sync button per connected account; bank-imported transactions are protected from accidental edits
 - **Dark mode** — system-aware, toggled from the sidebar
-- **Mobile** — responsive sidebar with hamburger menu on small screens; budget alerts badge in sidebar nav
+- **Mobile** — responsive layout with hamburger menu and slide-in sidebar drawer on small screens
 
 ---
 
@@ -35,37 +35,77 @@ FinanceTrack gives you a calm, clutter-free view of your personal finances:
 | UI | Tailwind CSS v4 + shadcn/ui |
 | Charts | Recharts |
 | Auth | NextAuth v5 (credentials + JWT) |
-| Open banking | TrueLayer Data API |
 | Toasts | Sonner |
 | Theme | next-themes |
 | Testing | Vitest + Testing Library |
+| Deployment | Docker + Docker Compose |
 
 ---
 
 ## Security
 
-- Password hashing with bcrypt (cost factor 12)
+- Password hashing with bcrypt (cost factor 12); minimum 12 characters, must include a letter and a number
 - JWT session strategy — no session table required
 - All API routes require authentication
 - Every query is scoped to the authenticated user — no data leakage between accounts
+- Ownership verification on all related resources (accounts, categories) during mutations
 - Input validation with Zod on every endpoint
-- Rate limiting on all API routes
-- CSRF origin validation on mutating requests
-- HTTP security headers (CSP, X-Frame-Options, HSTS, etc.)
-- PostgreSQL connection pool with SSL in production
-- Bank-imported transactions lock financial fields (amount, date, description) to prevent data corruption
+- Rate limiting on all API routes, keyed by `userId:IP` on mutation endpoints
+- CSRF origin validation on all mutating requests (POST, PATCH, DELETE)
+- CSP header: `unsafe-eval` is excluded in production (only present during development for Next.js HMR)
+- HTTP security headers (X-Frame-Options, HSTS, Referrer-Policy, Permissions-Policy, etc.)
+- PostgreSQL connection pool with SSL in production; SSL disabled automatically for internal Docker networking
 
 ---
 
 ## Getting started
 
-### Prerequisites
+### Option A — Docker (recommended)
 
-- Node.js 18+
-- PostgreSQL 14+
-- A [TrueLayer](https://truelayer.com) account (free sandbox available)
+The fastest way to run FinanceTrack. No need to install Node.js or PostgreSQL separately.
 
-### 1. Clone and install
+**Prerequisites:** [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+
+```bash
+git clone <your-repo-url>
+cd nextjs-finance-app
+
+# Copy the env template and fill in your values
+cp .env.docker.example .env.docker
+```
+
+Edit `.env.docker` — at minimum set `POSTGRES_PASSWORD` and `AUTH_SECRET`:
+
+```bash
+# Generate a secure password
+openssl rand -base64 24
+
+# Generate an auth secret
+openssl rand -base64 32
+```
+
+Then start everything:
+
+```bash
+docker compose --env-file .env.docker up -d
+```
+
+This builds the app, starts PostgreSQL, runs database migrations, and starts the server. Open [http://localhost:3000](http://localhost:3000).
+
+To stop:
+```bash
+docker compose --env-file .env.docker down
+```
+
+> Data is persisted in a Docker volume (`postgres_data`). Use `down -v` to wipe it completely.
+
+---
+
+### Option B — Local development
+
+**Prerequisites:** Node.js 18+, PostgreSQL 14+
+
+#### 1. Clone and install
 
 ```bash
 git clone <your-repo-url>
@@ -73,39 +113,25 @@ cd nextjs-finance-app
 npm install
 ```
 
-### 2. Configure environment
+#### 2. Configure environment
 
-Create a `.env.local` file in the project root:
+Create `.env.local` in the project root:
 
 ```env
 DATABASE_URL=postgresql://<user>:<password>@localhost:5432/finance_tracker
 AUTH_SECRET=<random-32-byte-base64-string>
 AUTH_URL=http://localhost:3000
-
-# TrueLayer (sandbox)
-TRUELAYER_CLIENT_ID=sandbox-<your-client-id>
-TRUELAYER_CLIENT_SECRET=<your-client-secret>
-TRUELAYER_SANDBOX=true
 ```
 
-Generate an auth secret with:
+Generate an auth secret:
 
 ```bash
 openssl rand -base64 32
 ```
 
-> **Note:** If your database password contains special characters (`/`, `+`, `=`), percent-encode them in the URL (e.g. `/` → `%2F`).
+> If your database password contains special characters (`/`, `+`, `=`), percent-encode them in the URL (e.g. `/` → `%2F`).
 
-### 3. Set up TrueLayer
-
-1. Create a free account at [console.truelayer.com](https://console.truelayer.com)
-2. Create an app and copy the sandbox `client_id` and `client_secret`
-3. Add `http://localhost:3000/api/truelayer/callback` as an allowed redirect URI
-4. Use credentials `john`/`doe` in the sandbox bank picker
-
-For production, set `TRUELAYER_SANDBOX=false` and use your live credentials. Production access requires contacting TrueLayer at `sales@truelayer.com`.
-
-### 4. Set up the database
+#### 3. Set up the database
 
 ```bash
 # Create the database
@@ -122,7 +148,9 @@ Demo credentials after seeding:
 - **Email:** `demo@example.com`
 - **Password:** `demo1234`
 
-### 5. Run
+> The demo account is created directly via the seed script and bypasses the registration password policy.
+
+#### 4. Run
 
 ```bash
 npm run dev
@@ -149,8 +177,6 @@ Open [http://localhost:3000](http://localhost:3000).
 npm test
 ```
 
-26 tests covering the TrueLayer client library and the onboarding checklist component.
-
 ---
 
 ## Project structure
@@ -161,12 +187,11 @@ src/
 │   ├── api/              # REST API routes
 │   │   ├── auth/         # NextAuth handler
 │   │   ├── register/     # User registration
-│   │   ├── transactions/ # CRUD + balance updates
+│   │   ├── transactions/ # CRUD + balance updates + server-side search
 │   │   ├── accounts/     # Account management (list, create, edit, delete)
 │   │   ├── categories/   # Category CRUD
 │   │   ├── budgets/      # Budget tracking (list, create, delete by ID)
-│   │   ├── dashboard/    # Aggregated dashboard data (incl. last-month trend)
-│   │   └── truelayer/    # Open banking (connect, callback, sync)
+│   │   └── dashboard/    # Aggregated dashboard data (trends, savings rate)
 │   ├── auth/             # Sign-in and register pages
 │   ├── dashboard/        # Main dashboard
 │   ├── transactions/     # Transaction list
@@ -179,8 +204,7 @@ src/
 │   ├── db.ts             # Database connection pool
 │   ├── api.ts            # Auth, rate-limit, and CSRF helpers
 │   ├── validate.ts       # Zod validation schemas
-│   ├── rate-limit.ts     # In-memory rate limiter
-│   ├── truelayer.ts      # TrueLayer API client
+│   ├── rate-limit.ts     # In-memory rate limiter (swap for Upstash Redis in production)
 │   └── format.ts         # Currency and date formatters
 ├── auth.ts               # Full NextAuth config (Node.js runtime)
 ├── auth.config.ts        # Edge-safe auth config (used in proxy)
@@ -191,12 +215,26 @@ src/
 
 ## Deploying to production
 
-1. Set `DATABASE_URL` with a strong password and SSL enabled
+### With Docker (recommended)
+
+1. Copy `.env.docker.example` to `.env.docker` and set production values:
+   - `POSTGRES_PASSWORD` — strong random password
+   - `AUTH_SECRET` — strong random secret (`openssl rand -base64 32`)
+   - `AUTH_URL` — your public domain (e.g. `https://finance.yourdomain.com`)
+
+2. Run on your server:
+   ```bash
+   docker compose --env-file .env.docker up -d
+   ```
+
+3. Put a reverse proxy (nginx, Caddy, Traefik) in front of port 3000 to handle HTTPS.
+
+### Without Docker
+
+1. Set `DATABASE_URL` with SSL enabled
 2. Set `AUTH_SECRET` and `AUTH_URL` (your public domain)
-3. Set `TRUELAYER_CLIENT_ID`, `TRUELAYER_CLIENT_SECRET`, and `TRUELAYER_SANDBOX=false`
-4. Register your production redirect URI in the TrueLayer console
-5. Run `npm run db:push` against the production database
-6. Deploy with `npm run build && npm start`
+3. Run `npm run db:push` against the production database
+4. Build and start: `npm run build && npm start`
 
 For multi-instance deployments, swap the in-memory rate limiter (`src/lib/rate-limit.ts`) for [Upstash Redis](https://upstash.com).
 

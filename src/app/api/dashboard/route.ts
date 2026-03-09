@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { transactions, accounts } from "@/lib/schema";
-import { eq, sum, desc, gte, lte, and } from "drizzle-orm";
+import { transactions, accounts, budgets } from "@/lib/schema";
+import { eq, sum, desc, gte, lte, and, count } from "drizzle-orm";
 import { requireAuth, applyRateLimit } from "@/lib/api";
 
 export async function GET(req: NextRequest) {
@@ -160,6 +160,11 @@ export async function GET(req: NextRequest) {
       .filter((c) => c.total > 0)
       .sort((a, b) => b.total - a.total);
 
+    const [{ budgetCount }] = await db
+      .select({ budgetCount: count() })
+      .from(budgets)
+      .where(eq(budgets.userId, userId!));
+
     return NextResponse.json({
       totalBalance,
       monthIncome: parseFloat(String(monthIncome || 0)),
@@ -172,6 +177,7 @@ export async function GET(req: NextRequest) {
       recentTransactions,
       monthlyTrend,
       spendingByCategory,
+      hasBudgets: budgetCount > 0,
     });
   } catch (err) {
     console.error(err);

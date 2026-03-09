@@ -44,6 +44,7 @@ interface DashboardData {
   recentTransactions: Transaction[];
   monthlyTrend: { month: string; income: number; expenses: number }[];
   spendingByCategory: { name: string; color: string; total: number; lastMonthTotal: number }[];
+  hasBudgets: boolean;
 }
 
 interface Account {
@@ -230,8 +231,9 @@ export function DashboardContent() {
 
       {/* Onboarding Checklist */}
       <OnboardingChecklist
-        hasAccounts={data.accounts.length > 0}
+        hasAccounts={data.accounts.some((a) => parseFloat(a.balance) !== 0)}
         hasTransactions={data.recentTransactions.length > 0}
+        hasBudgets={data.hasBudgets}
         onAddTransaction={() => setTxDialogOpen(true)}
       />
 

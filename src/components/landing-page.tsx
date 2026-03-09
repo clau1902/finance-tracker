@@ -73,10 +73,9 @@ export function LandingPage() {
           No credit card · No subscription · No data harvesting
         </p>
 
-        {/* ── App preview card ── */}
+        {/* ── App preview screenshot ── */}
         <div className="mt-16 w-full max-w-4xl">
-          <div className="rounded-2xl border border-border/60 bg-card shadow-xl overflow-hidden">
-            {/* Fake window bar */}
+          <div className="rounded-2xl border border-border/60 shadow-xl overflow-hidden">
             <div className="flex items-center gap-1.5 px-4 py-3 border-b border-border/50 bg-secondary/40">
               <div className="w-3 h-3 rounded-full bg-rose-400/70" />
               <div className="w-3 h-3 rounded-full bg-amber-400/70" />
@@ -85,86 +84,12 @@ export function LandingPage() {
                 <div className="bg-background/60 rounded-md h-5 w-48 mx-auto" />
               </div>
             </div>
-
-            {/* Fake app layout */}
-            <div className="flex h-72">
-              {/* Sidebar mock */}
-              <div className="w-44 border-r border-border/50 bg-sidebar p-3 space-y-1 flex-shrink-0">
-                <div className="flex items-center gap-2 px-2 py-1.5 mb-3">
-                  <div className="w-5 h-5 rounded bg-primary/80" />
-                  <div className="h-2.5 w-20 bg-sidebar-foreground/20 rounded" />
-                </div>
-                {[
-                  { active: true, w: "w-16" },
-                  { active: false, w: "w-20" },
-                  { active: false, w: "w-14" },
-                  { active: false, w: "w-18" },
-                ].map((item, i) => (
-                  <div
-                    key={i}
-                    className={`flex items-center gap-2 px-2 py-1.5 rounded-lg ${
-                      item.active ? "bg-sidebar-primary" : ""
-                    }`}
-                  >
-                    <div className={`w-3.5 h-3.5 rounded ${item.active ? "bg-sidebar-primary-foreground/60" : "bg-sidebar-foreground/20"}`} />
-                    <div className={`h-2 ${item.w} rounded ${item.active ? "bg-sidebar-primary-foreground/40" : "bg-sidebar-foreground/15"}`} />
-                  </div>
-                ))}
-              </div>
-
-              {/* Main content mock */}
-              <div className="flex-1 p-4 bg-background space-y-3">
-                {/* Stats row */}
-                <div className="grid grid-cols-4 gap-2">
-                  {[
-                    { color: "bg-primary/15", bar: "bg-primary/40", label: "w-12", val: "w-16" },
-                    { color: "bg-emerald-100", bar: "bg-emerald-400/50", label: "w-14", val: "w-12" },
-                    { color: "bg-rose-100", bar: "bg-rose-400/50", label: "w-14", val: "w-14" },
-                    { color: "bg-secondary", bar: "bg-primary/30", label: "w-10", val: "w-12" },
-                  ].map((card, i) => (
-                    <div key={i} className={`${card.color} rounded-xl p-2.5 space-y-1.5`}>
-                      <div className={`h-1.5 ${card.label} ${card.bar} rounded`} />
-                      <div className={`h-3 ${card.val} bg-foreground/15 rounded`} />
-                    </div>
-                  ))}
-                </div>
-
-                {/* Chart + list row */}
-                <div className="grid grid-cols-3 gap-2">
-                  {/* Area chart mock */}
-                  <div className="col-span-2 bg-card border border-border/40 rounded-xl p-3">
-                    <div className="h-2 w-24 bg-foreground/10 rounded mb-3" />
-                    <div className="flex items-end gap-1 h-16">
-                      {[30, 55, 40, 70, 50, 85, 60, 90, 65, 80, 45, 70].map((h, i) => (
-                        <div key={i} className="flex-1 flex flex-col justify-end gap-0.5">
-                          <div
-                            className="w-full bg-primary/25 rounded-t"
-                            style={{ height: `${h * 0.5}%` }}
-                          />
-                          <div
-                            className="w-full bg-rose-300/40 rounded-t"
-                            style={{ height: `${(100 - h) * 0.3}%` }}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Pie mock */}
-                  <div className="bg-card border border-border/40 rounded-xl p-3 flex flex-col items-center justify-center gap-2">
-                    <div className="w-14 h-14 rounded-full border-8 border-primary/40 border-t-primary border-r-emerald-400/60" />
-                    <div className="space-y-1 w-full">
-                      {["w-10", "w-14", "w-8"].map((w, i) => (
-                        <div key={i} className="flex items-center gap-1">
-                          <div className={`w-2 h-2 rounded-full ${["bg-primary/60","bg-emerald-400/60","bg-amber-400/60"][i]}`} />
-                          <div className={`h-1.5 ${w} bg-foreground/10 rounded`} />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/dashboard-preview.png"
+              alt="FinanceTrack dashboard"
+              className="w-full block"
+            />
           </div>
         </div>
       </section>

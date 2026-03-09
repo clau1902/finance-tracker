@@ -1,0 +1,62 @@
+services:
+  # Mailpit — local SMTP + web UI for testing emails
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    ports:
+      - "8025:8025"   # web UI
+      - "1025:1025"   # SMTP
+
+  # PostgreSQL database with persistent volume
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: finance_tracker
+      POSTGRES_USER: financetrack
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U financetrack -d finance_tracker"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # One-shot service: pushes the Drizzle schema to the database, then exits
+  migrate:
+    build:
+      context: .
+      target: builder        # builder stage has drizzle-kit + full node_modules
+    command: npm run db:push
+    environment:
+      DATABASE_URL: postgresql://financetrack:${POSTGRES_PASSWORD}@db:5432/finance_tracker
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Next.js application
+  app:
+    build:
+      context: .
+      target: runner
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    environment:
+      DATABASE_URL: postgresql://financetrack:${POSTGRES_PASSWORD}@db:5432/finance_tracker
+      DATABASE_SSL: "false"       # internal Docker network — no SSL needed
+      AUTH_SECRET: ${AUTH_SECRET}
+      AUTH_URL: ${AUTH_URL:-http://localhost:3000}
+      NODE_ENV: production
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      SMTP_FROM: ${SMTP_FROM:-FinanceTrack <noreply@financetrack.local>}
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  postgres_data:

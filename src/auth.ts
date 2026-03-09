@@ -15,6 +15,7 @@ const credentialsSchema = z.object({
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
+  trustHost: true,
   providers: [
     Credentials({
       credentials: {
@@ -22,20 +23,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        const parsed = credentialsSchema.safeParse(credentials);
-        if (!parsed.success) return null;
+        try {
+          const parsed = credentialsSchema.safeParse(credentials);
+          if (!parsed.success) return null;
 
-        const [user] = await db
-          .select()
-          .from(users)
-          .where(eq(users.email, parsed.data.email));
+          const [user] = await db
+            .select()
+            .from(users)
+            .where(eq(users.email, parsed.data.email));
 
-        if (!user) return null;
+          if (!user) return null;
 
-        const valid = await bcrypt.compare(parsed.data.password, user.password);
-        if (!valid) return null;
+          const valid = await bcrypt.compare(parsed.data.password, user.password);
+          if (!valid) return null;
 
-        return { id: String(user.id), email: user.email, name: user.name };
+          return { id: String(user.id), email: user.email, name: user.name };
+        } catch (err) {
+          console.error("[auth] authorize error:", err);
+          return null;
+        }
       },
     }),
   ],

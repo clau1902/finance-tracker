@@ -17,12 +17,14 @@ vi.mock("@/components/connect-bank-button", () => ({
 function renderChecklist(props: {
   hasAccounts?: boolean;
   hasTransactions?: boolean;
+  hasBudgets?: boolean;
   onAddTransaction?: () => void;
 }) {
   return render(
     <OnboardingChecklist
       hasAccounts={props.hasAccounts ?? false}
       hasTransactions={props.hasTransactions ?? false}
+      hasBudgets={props.hasBudgets ?? false}
       onAddTransaction={props.onAddTransaction ?? vi.fn()}
     />
   );
@@ -38,18 +40,23 @@ describe("OnboardingChecklist", () => {
     expect(screen.getByText(/let's get started/i)).toBeInTheDocument();
   });
 
-  it("shows '0 of 2 required steps complete' initially", () => {
+  it("shows '0 of 3 steps complete' initially", () => {
     renderChecklist({});
-    expect(screen.getByText("0 of 2 required steps complete")).toBeInTheDocument();
+    expect(screen.getByText("0 of 3 steps complete")).toBeInTheDocument();
   });
 
-  it("shows '1 of 2 required steps complete' when accounts exist", () => {
+  it("shows '1 of 3 steps complete' when accounts exist", () => {
     renderChecklist({ hasAccounts: true });
-    expect(screen.getByText("1 of 2 required steps complete")).toBeInTheDocument();
+    expect(screen.getByText("1 of 3 steps complete")).toBeInTheDocument();
   });
 
-  it("shows celebration state when both steps done", () => {
+  it("shows '2 of 3 steps complete' when accounts and transactions exist", () => {
     renderChecklist({ hasAccounts: true, hasTransactions: true });
+    expect(screen.getByText("2 of 3 steps complete")).toBeInTheDocument();
+  });
+
+  it("shows celebration state when all steps done", () => {
+    renderChecklist({ hasAccounts: true, hasTransactions: true, hasBudgets: true });
     expect(screen.getByText(/you're all set/i)).toBeInTheDocument();
     expect(screen.getByText(/closing in a moment/i)).toBeInTheDocument();
   });
@@ -91,7 +98,19 @@ describe("OnboardingChecklist", () => {
 
   it("shows completed steps with strikethrough text", () => {
     renderChecklist({ hasAccounts: true });
-    const completedStep = screen.getByText("Connect your bank");
+    const completedStep = screen.getByText("Set your account balance");
     expect(completedStep).toHaveClass("line-through");
+  });
+
+  it("budget step completes when hasBudgets is true", () => {
+    renderChecklist({ hasAccounts: true, hasTransactions: true, hasBudgets: true });
+    const budgetStep = screen.getByText("Set a spending budget");
+    expect(budgetStep).toHaveClass("line-through");
+  });
+
+  it("budget step is not complete when hasBudgets is false", () => {
+    renderChecklist({ hasAccounts: true, hasTransactions: true, hasBudgets: false });
+    const budgetStep = screen.getByText("Set a spending budget");
+    expect(budgetStep).not.toHaveClass("line-through");
   });
 });

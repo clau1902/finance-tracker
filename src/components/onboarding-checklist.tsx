@@ -12,12 +12,14 @@ const STORAGE_KEY = "ftk_onboarding_dismissed";
 interface OnboardingChecklistProps {
   hasAccounts: boolean;
   hasTransactions: boolean;
+  hasBudgets: boolean;
   onAddTransaction: () => void;
 }
 
 export function OnboardingChecklist({
   hasAccounts,
   hasTransactions,
+  hasBudgets,
   onAddTransaction,
 }: OnboardingChecklistProps) {
   const { data: session } = useSession();
@@ -27,9 +29,9 @@ export function OnboardingChecklist({
     setDismissed(localStorage.getItem(STORAGE_KEY) === "true");
   }, []);
 
-  const allDone = hasAccounts && hasTransactions;
+  const allDone = hasAccounts && hasTransactions && hasBudgets;
 
-  // Auto-dismiss 4s after all core steps complete
+  // Auto-dismiss 4s after all steps complete
   useEffect(() => {
     if (allDone && dismissed === false) {
       const t = setTimeout(() => {
@@ -49,14 +51,15 @@ export function OnboardingChecklist({
   if (dismissed === null || dismissed === true) return null;
 
   const firstName = session?.user?.name?.split(" ")[0];
-  const completedCount = [hasAccounts, hasTransactions].filter(Boolean).length;
+  const completedCount = [hasAccounts, hasTransactions, hasBudgets].filter(Boolean).length;
+  const totalSteps = 3;
 
   const steps = [
     {
       id: "account",
       done: hasAccounts,
-      title: "Connect your bank",
-      description: "Link a bank account via open banking",
+      title: "Set your account balance",
+      description: "Update your balance or connect your bank via open banking",
       action: (
         <ConnectBankButton size="sm" variant="default" className="gap-1 text-xs h-7">
           Connect <ChevronRight className="w-3 h-3" />
@@ -83,7 +86,7 @@ export function OnboardingChecklist({
     },
     {
       id: "budget",
-      done: false,
+      done: hasBudgets,
       title: "Set a spending budget",
       description: "Track how much you spend per category",
       action: (
@@ -112,7 +115,7 @@ export function OnboardingChecklist({
           <p className="text-xs text-muted-foreground mt-0.5">
             {allDone
               ? "Your dashboard is ready. Closing in a moment..."
-              : `${completedCount} of 2 required steps complete`}
+              : `${completedCount} of ${totalSteps} steps complete`}
           </p>
         </div>
         <button
@@ -128,7 +131,7 @@ export function OnboardingChecklist({
       <div className="h-1.5 bg-secondary rounded-full mb-4 overflow-hidden">
         <div
           className="h-1.5 bg-primary rounded-full transition-all duration-700"
-          style={{ width: `${(completedCount / 2) * 100}%` }}
+          style={{ width: `${(completedCount / totalSteps) * 100}%` }}
         />
       </div>
 

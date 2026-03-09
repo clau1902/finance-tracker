@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import Link from "next/link";
 
 export function SignInForm() {
   const router = useRouter();
@@ -50,7 +51,15 @@ export function SignInForm() {
         />
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="password">Password</Label>
+        <div className="flex items-center justify-between">
+          <Label htmlFor="password">Password</Label>
+          <Link
+            href="/auth/forgot-password"
+            className="text-xs text-muted-foreground hover:text-primary transition-colors"
+          >
+            Forgot password?
+          </Link>
+        </div>
         <Input
           id="password"
           type="password"

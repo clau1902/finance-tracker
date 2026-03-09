@@ -28,6 +28,8 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Produces a self-contained build for Docker (server.js + minimal node_modules)
+  output: "standalone",
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];
   },
