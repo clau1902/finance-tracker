@@ -13,7 +13,7 @@ import { accounts, transactions, categories } from "@/lib/schema";
 import { and, eq } from "drizzle-orm";
 
 export async function GET(req: NextRequest) {
-  const origin = new URL(req.url).origin;
+  const origin = process.env.AUTH_URL?.replace(/\/$/, "") ?? new URL(req.url).origin;
   const errorUrl = `${origin}/dashboard?bank_error=1`;
   const successUrl = `${origin}/dashboard?bank_connected=1`;
 
