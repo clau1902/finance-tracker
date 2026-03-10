@@ -118,7 +118,7 @@ npm install
 Create `.env.local` in the project root:
 
 ```env
-DATABASE_URL=postgresql://<user>:<password>@localhost:5432/finance_tracker
+POSTGRES_URL=postgresql://<user>:<password>@localhost:5432/finance_tracker
 AUTH_SECRET=<random-32-byte-base64-string>
 AUTH_URL=http://localhost:3000
 ```
@@ -231,7 +231,7 @@ src/
 
 ### Without Docker
 
-1. Set `DATABASE_URL` with SSL enabled
+1. Set `POSTGRES_URL` with SSL enabled
 2. Set `AUTH_SECRET` and `AUTH_URL` (your public domain)
 3. Run `npm run db:push` against the production database
 4. Build and start: `npm run build && npm start`
