@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
   const rl = applyRateLimit(`truelayer-connect:${ip}`, 20);
   if (rl) return rl;
 
-  const origin = new URL(req.url).origin;
+  const origin = process.env.AUTH_URL?.replace(/\/$/, "") ?? new URL(req.url).origin;
   const redirectUri = `${origin}/api/truelayer/callback`;
 
   const url = buildAuthUrl(
