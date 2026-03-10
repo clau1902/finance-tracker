@@ -8,6 +8,13 @@
       "when": 1772706448366,
       "tag": "0000_faithful_silverclaw",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1773134629512,
+      "tag": "0001_supreme_satana",
+      "breakpoints": true
     }
   ]
 }

@@ -23,18 +23,6 @@ services:
       timeout: 5s
       retries: 10
 
-  # One-shot service: pushes the Drizzle schema to the database, then exits
-  migrate:
-    build:
-      context: .
-      target: builder        # builder stage has drizzle-kit + full node_modules
-    command: npm run db:push
-    environment:
-      POSTGRES_URL: postgresql://financetrack:${POSTGRES_PASSWORD}@db:5432/finance_tracker
-    depends_on:
-      db:
-        condition: service_healthy
-
   # Next.js application
   app:
     build:
@@ -55,8 +43,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      migrate:
-        condition: service_completed_successfully
 
 volumes:
   postgres_data:
