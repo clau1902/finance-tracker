@@ -15,6 +15,13 @@
       "when": 1773134629512,
       "tag": "0001_supreme_satana",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1773800000000,
+      "tag": "0002_truelayer_columns",
+      "breakpoints": true
     }
   ]
 }
