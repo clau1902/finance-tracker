@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { accounts, transactions, categories } from "@/lib/schema";
 import { eq, and } from "drizzle-orm";
 import { requireAuth, validateOrigin } from "@/lib/api";
-import { getBalance, getTransactions, mapAccountType, colorForType } from "@/lib/truelayer";
+import { getBalance, getTransactions } from "@/lib/truelayer";
 
 export async function POST(req: NextRequest) {
   if (!validateOrigin(req)) {
@@ -39,10 +39,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const type = mapAccountType(account.type);
     await db
       .update(accounts)
-      .set({ balance: String(balance.current), color: colorForType(type) })
+      .set({ balance: String(balance.current), currency: balance.currency })
       .where(eq(accounts.id, accountId));
 
     // Find or create Uncategorized category
@@ -74,7 +73,7 @@ export async function POST(req: NextRequest) {
         .limit(1);
       if (existingTx.length > 0) continue;
 
-      const isCredit = tlTx.transaction_type === "CREDIT" || tlTx.amount > 0;
+      const isCredit = tlTx.transaction_type === "CREDIT";
       await db.insert(transactions).values({
         userId: userId!,
         accountId,

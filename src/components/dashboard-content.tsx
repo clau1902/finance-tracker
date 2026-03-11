@@ -34,6 +34,8 @@ import { ConnectBankButton } from "@/components/connect-bank-button";
 import { formatCurrency } from "@/lib/format";
 
 interface DashboardData {
+  primaryCurrency: string;
+  balanceByCurrency: Record<string, number>;
   totalBalance: number;
   monthIncome: number;
   monthExpense: number;
@@ -52,6 +54,7 @@ interface Account {
   name: string;
   type: string;
   balance: string;
+  currency: string;
   color: string;
 }
 
@@ -62,7 +65,7 @@ interface Transaction {
   type: "income" | "expense";
   date: string;
   category?: { name: string; color: string; icon: string } | null;
-  account?: { name: string } | null;
+  account?: { name: string; currency: string } | null;
 }
 
 const accountIcons: Record<string, React.ElementType> = {
@@ -165,10 +168,11 @@ export function DashboardContent() {
       ? Math.round((data.monthlySavings / data.monthIncome) * 100)
       : null;
 
+  const c = data.primaryCurrency;
   const summaryCards = [
     {
       label: "Total Balance",
-      value: formatCurrency(data.totalBalance),
+      value: formatCurrency(data.totalBalance, c),
       icon: Wallet,
       iconColor: "text-primary",
       iconBg: "bg-primary/10",
@@ -176,7 +180,7 @@ export function DashboardContent() {
     },
     {
       label: "Monthly Income",
-      value: formatCurrency(data.monthIncome),
+      value: formatCurrency(data.monthIncome, c),
       icon: TrendingUp,
       iconColor: "text-emerald-600",
       iconBg: "bg-emerald-100",
@@ -185,7 +189,7 @@ export function DashboardContent() {
     },
     {
       label: "Monthly Expenses",
-      value: formatCurrency(data.monthExpense),
+      value: formatCurrency(data.monthExpense, c),
       icon: TrendingDown,
       iconColor: "text-rose-500",
       iconBg: "bg-rose-100",
@@ -194,7 +198,7 @@ export function DashboardContent() {
     },
     {
       label: "Net Savings",
-      value: formatCurrency(data.monthlySavings),
+      value: formatCurrency(data.monthlySavings, c),
       icon: PiggyBank,
       iconColor: data.monthlySavings >= 0 ? "text-teal-600" : "text-rose-500",
       iconBg: data.monthlySavings >= 0 ? "bg-teal-100" : "bg-rose-100",
@@ -309,9 +313,9 @@ export function DashboardContent() {
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis dataKey="month" tick={{ fontSize: 12, fill: "#64748b" }} />
-                <YAxis tick={{ fontSize: 12, fill: "#64748b" }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
+                <YAxis tick={{ fontSize: 12, fill: "#64748b" }} tickFormatter={(v) => formatCurrency(Number(v) / 1000, c).replace(/\.00$/, "") + "k"} />
                 <Tooltip
-                  formatter={(value) => [formatCurrency(Number(value)), ""]}
+                  formatter={(value) => [formatCurrency(Number(value), c), ""]}
                   contentStyle={{ borderRadius: "8px", border: "1px solid #e2e8f0", fontSize: "12px" }}
                 />
                 <Area type="monotone" dataKey="income" stroke="#0d9488" strokeWidth={2} fill="url(#incomeGrad)" name="Income" />
@@ -342,7 +346,7 @@ export function DashboardContent() {
                       />
                       <span className="text-sm flex-1 truncate">{cat.name}</span>
                       <span className="text-sm font-medium tabular-nums">
-                        {formatCurrency(cat.total)}
+                        {formatCurrency(cat.total, c)}
                       </span>
                       {pct !== null && (
                         <span
@@ -479,7 +483,7 @@ export function DashboardContent() {
                         balance < 0 ? "text-rose-500" : "text-foreground"
                       }`}
                     >
-                      {formatCurrency(balance)}
+                      {formatCurrency(balance, account.currency)}
                     </p>
                     {balance < 0 ? (
                       <ArrowDownRight className="w-3 h-3 text-rose-500 ml-auto" />

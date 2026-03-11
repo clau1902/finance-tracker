@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
-import { Search, Trash2, Pencil, X, FilterX, Download, ChevronDown, CalendarRange } from "lucide-react";
+import { Search, Trash2, Pencil, X, FilterX, Download, ChevronDown, CalendarRange, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -62,6 +62,7 @@ interface Account {
   id: number;
   name: string;
   type: string;
+  externalAccountId?: string | null;
 }
 
 function SkeletonRows() {
@@ -256,6 +257,16 @@ export function TransactionsContent() {
     .filter((tx) => tx.type === "expense")
     .reduce((sum, tx) => sum + parseFloat(tx.amount), 0);
 
+  // Per-account breakdown (only meaningful when showing all accounts)
+  const accountBreakdown = accounts
+    .filter((a) => filtered.some((tx) => tx.accountId === a.id))
+    .map((a) => {
+      const txs = filtered.filter((tx) => tx.accountId === a.id);
+      const income = txs.filter((tx) => tx.type === "income").reduce((s, tx) => s + parseFloat(tx.amount), 0);
+      const expense = txs.filter((tx) => tx.type === "expense").reduce((s, tx) => s + parseFloat(tx.amount), 0);
+      return { account: a, income, expense, net: income - expense };
+    });
+
   // Group by date label
   const groups: { label: string; items: Transaction[] }[] = [];
   for (const tx of filtered) {
@@ -320,6 +331,45 @@ export function TransactionsContent() {
         </div>
       </div>
 
+      {/* Per-account breakdown */}
+      {accountFilter === "all" && accountBreakdown.length > 1 && (
+        <div className="border border-border/60 rounded-xl overflow-hidden">
+          <div className="px-4 py-2.5 bg-secondary/40 border-b border-border/40">
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              Breakdown by account
+            </span>
+          </div>
+          <div className="divide-y divide-border/40">
+            {accountBreakdown.map(({ account, income, expense, net }) => (
+              <div key={account.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
+                <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                  <span className="font-medium truncate">{account.name}</span>
+                  {account.externalAccountId && (
+                    <span className="flex items-center gap-0.5 text-xs font-medium px-1.5 py-0.5 rounded-full bg-primary/10 text-primary flex-shrink-0">
+                      <Zap className="w-2.5 h-2.5" />
+                      TrueLayer
+                    </span>
+                  )}
+                </div>
+                <span className="text-emerald-600 tabular-nums w-24 text-right">
+                  +{formatCurrency(income)}
+                </span>
+                <span className="text-rose-500 tabular-nums w-24 text-right">
+                  -{formatCurrency(expense)}
+                </span>
+                <span
+                  className={`tabular-nums w-24 text-right font-semibold ${
+                    net >= 0 ? "text-emerald-600" : "text-rose-500"
+                  }`}
+                >
+                  {net >= 0 ? "+" : ""}{formatCurrency(net)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Filters */}
       <div className="flex gap-3 flex-wrap items-center">
         <div className="relative flex-1 min-w-48">
@@ -370,7 +420,12 @@ export function TransactionsContent() {
             <SelectItem value="all">All accounts</SelectItem>
             {accounts.map((a) => (
               <SelectItem key={a.id} value={String(a.id)}>
-                {a.name}
+                <span className="flex items-center gap-1.5">
+                  {a.name}
+                  {a.externalAccountId && (
+                    <Zap className="w-3 h-3 text-primary flex-shrink-0" />
+                  )}
+                </span>
               </SelectItem>
             ))}
           </SelectContent>

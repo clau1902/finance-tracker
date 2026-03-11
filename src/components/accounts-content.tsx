@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, CreditCard, Landmark, Wallet, TrendingUp, ArrowRight, Pencil, Trash2, RefreshCw } from "lucide-react";
+import { Plus, CreditCard, Landmark, Wallet, TrendingUp, ArrowRight, Pencil, Trash2, RefreshCw, Archive, RotateCcw, ChevronDown, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -41,9 +41,11 @@ interface Account {
   name: string;
   type: "checking" | "savings" | "credit" | "investment";
   balance: string;
+  currency: string;
   color: string;
   createdAt: string;
   externalAccountId?: string | null;
+  retired: boolean;
 }
 
 const accountIcons = {
@@ -84,6 +86,9 @@ export function AccountsContent() {
   const [deleteAccount, setDeleteAccount] = useState<Account | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [syncingId, setSyncingId] = useState<number | null>(null);
+  const [retireAccount, setRetireAccount] = useState<Account | null>(null);
+  const [retiring, setRetiring] = useState(false);
+  const [showRetired, setShowRetired] = useState(false);
 
   const fetchAccounts = async () => {
     setLoading(true);
@@ -99,11 +104,23 @@ export function AccountsContent() {
     fetchAccounts();
   }, []);
 
-  const assets = accounts
+  const activeAccounts = accounts.filter((a) => !a.retired);
+  const retiredAccounts = accounts.filter((a) => a.retired);
+
+  const currencyCount: Record<string, number> = {};
+  for (const a of activeAccounts) {
+    currencyCount[a.currency] = (currencyCount[a.currency] || 0) + 1;
+  }
+  const primaryCurrency =
+    Object.entries(currencyCount).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "USD";
+  const primaryAccounts = activeAccounts.filter((a) => a.currency === primaryCurrency);
+  const multipleCurrencies = Object.keys(currencyCount).length > 1;
+
+  const assets = primaryAccounts
     .filter((a) => parseFloat(a.balance) >= 0)
     .reduce((sum, a) => sum + parseFloat(a.balance), 0);
 
-  const liabilities = accounts
+  const liabilities = primaryAccounts
     .filter((a) => parseFloat(a.balance) < 0)
     .reduce((sum, a) => sum + parseFloat(a.balance), 0);
 
@@ -181,6 +198,42 @@ export function AccountsContent() {
       }
     } finally {
       setSyncingId(null);
+    }
+  };
+
+  const handleRetire = async () => {
+    if (!retireAccount) return;
+    setRetiring(true);
+    try {
+      const res = await fetch(`/api/accounts/${retireAccount.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ retired: true }),
+      });
+      if (res.ok) {
+        toast.success(`"${retireAccount.name}" retired`);
+        setRetireAccount(null);
+        fetchAccounts();
+      } else {
+        const data = await res.json();
+        toast.error(data.error ?? "Failed to retire account");
+      }
+    } finally {
+      setRetiring(false);
+    }
+  };
+
+  const handleRestore = async (account: Account) => {
+    const res = await fetch(`/api/accounts/${account.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ retired: false }),
+    });
+    if (res.ok) {
+      toast.success(`"${account.name}" restored`);
+      fetchAccounts();
+    } else {
+      toast.error("Failed to restore account");
     }
   };
 
@@ -344,6 +397,28 @@ export function AccountsContent() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Retire confirmation */}
+      <AlertDialog open={!!retireAccount} onOpenChange={(open) => { if (!open) setRetireAccount(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Retire &ldquo;{retireAccount?.name}&rdquo;?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The account will be hidden from your active list and excluded from net worth. Transactions are kept. You can restore it at any time.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-amber-500 hover:bg-amber-600"
+              onClick={handleRetire}
+              disabled={retiring}
+            >
+              {retiring ? "Retiring..." : "Retire"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Net Worth Card */}
       <Card className="border-border/60 shadow-sm bg-gradient-to-br from-primary/5 to-primary/10">
         <CardContent className="p-5">
@@ -357,25 +432,27 @@ export function AccountsContent() {
                   totalNetWorth >= 0 ? "text-foreground" : "text-rose-500"
                 }`}
               >
-                {formatCurrency(totalNetWorth)}
+                {formatCurrency(totalNetWorth, primaryCurrency)}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
-                Across {accounts.length} account{accounts.length !== 1 ? "s" : ""}
+                {multipleCurrencies
+                  ? `${primaryCurrency} accounts · ${activeAccounts.length} total`
+                  : `Across ${activeAccounts.length} active account${activeAccounts.length !== 1 ? "s" : ""}`}
               </p>
             </div>
-            {accounts.length > 0 && (
+            {activeAccounts.length > 0 && (
               <div className="text-right space-y-1">
                 <div>
                   <p className="text-xs text-muted-foreground">Assets</p>
                   <p className="text-sm font-semibold text-emerald-600">
-                    +{formatCurrency(assets)}
+                    +{formatCurrency(assets, primaryCurrency)}
                   </p>
                 </div>
                 {liabilities < 0 && (
                   <div>
                     <p className="text-xs text-muted-foreground">Liabilities</p>
                     <p className="text-sm font-semibold text-rose-500">
-                      {formatCurrency(liabilities)}
+                      {formatCurrency(liabilities, primaryCurrency)}
                     </p>
                   </div>
                 )}
@@ -388,7 +465,7 @@ export function AccountsContent() {
       {/* Accounts Grid */}
       {loading ? (
         <div className="text-center py-12 text-muted-foreground text-sm">Loading...</div>
-      ) : accounts.length === 0 ? (
+      ) : activeAccounts.length === 0 && retiredAccounts.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           <div className="w-12 h-12 rounded-2xl bg-secondary flex items-center justify-center mx-auto mb-3">
             <Wallet className="w-6 h-6 opacity-40" />
@@ -402,89 +479,174 @@ export function AccountsContent() {
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {accounts.map((account) => {
-            const balance = parseFloat(account.balance);
-            const Icon = accountIcons[account.type] ?? Wallet;
-            const isNegative = balance < 0;
+        <>
+          {activeAccounts.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {activeAccounts.map((account) => {
+                const balance = parseFloat(account.balance);
+                const Icon = accountIcons[account.type] ?? Wallet;
+                const isNegative = balance < 0;
 
-            return (
-              <Card
-                key={account.id}
-                className="border-border/60 shadow-sm hover:shadow-md transition-shadow"
-              >
-                <CardContent className="p-5">
-                  <div className="flex items-start justify-between mb-4">
-                    <div
-                      className="w-11 h-11 rounded-xl flex items-center justify-center"
-                      style={{ backgroundColor: account.color + "22" }}
-                    >
-                      <Icon
-                        className="w-5 h-5"
-                        style={{ color: account.color }}
-                      />
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <span
-                        className="text-xs font-medium px-2 py-0.5 rounded-full capitalize"
-                        style={{
-                          backgroundColor: account.color + "18",
-                          color: account.color,
-                        }}
-                      >
-                        {accountTypeLabels[account.type] ?? account.type}
-                      </span>
-                      <button
-                        onClick={() => openEdit(account)}
-                        className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-                        title="Edit account"
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => setDeleteAccount(account)}
-                        className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-500 hover:bg-rose-50 transition-colors"
-                        title="Delete account"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    {account.name}
-                  </p>
-                  <p
-                    className={`text-2xl font-bold mt-1 ${
-                      isNegative ? "text-rose-500" : "text-foreground"
-                    }`}
+                return (
+                  <Card
+                    key={account.id}
+                    className="border-border/60 shadow-sm hover:shadow-md transition-shadow"
                   >
-                    {formatCurrency(balance)}
-                  </p>
-                  <div className="mt-3 flex items-center justify-between">
-                    <Link
-                      href={`/transactions?accountId=${account.id}`}
-                      className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
-                    >
-                      View transactions
-                      <ArrowRight className="w-3 h-3" />
-                    </Link>
-                    {account.externalAccountId && (
-                      <button
-                        onClick={() => handleSync(account)}
-                        disabled={syncingId === account.id}
-                        className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
-                        title="Sync from bank"
+                    <CardContent className="p-5">
+                      <div className="flex items-start justify-between mb-4">
+                        <div
+                          className="w-11 h-11 rounded-xl flex items-center justify-center"
+                          style={{ backgroundColor: account.color + "22" }}
+                        >
+                          <Icon
+                            className="w-5 h-5"
+                            style={{ color: account.color }}
+                          />
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span
+                            className="text-xs font-medium px-2 py-0.5 rounded-full capitalize"
+                            style={{
+                              backgroundColor: account.color + "18",
+                              color: account.color,
+                            }}
+                          >
+                            {accountTypeLabels[account.type] ?? account.type}
+                          </span>
+                          <button
+                            onClick={() => openEdit(account)}
+                            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                            title="Edit account"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => setRetireAccount(account)}
+                            className="p-1.5 rounded-lg text-muted-foreground hover:text-amber-500 hover:bg-amber-50 transition-colors"
+                            title="Retire account"
+                          >
+                            <Archive className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => setDeleteAccount(account)}
+                            className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-500 hover:bg-rose-50 transition-colors"
+                            title="Delete account"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                      <p className="text-sm font-medium text-muted-foreground">
+                        {account.name}
+                      </p>
+                      <p
+                        className={`text-2xl font-bold mt-1 ${
+                          isNegative ? "text-rose-500" : "text-foreground"
+                        }`}
                       >
-                        <RefreshCw className={`w-3 h-3 ${syncingId === account.id ? "animate-spin" : ""}`} />
-                        {syncingId === account.id ? "Syncing..." : "Sync"}
-                      </button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+                        {formatCurrency(balance, account.currency)}
+                      </p>
+                      <div className="mt-3 flex items-center justify-between">
+                        <Link
+                          href={`/transactions?accountId=${account.id}`}
+                          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
+                        >
+                          View transactions
+                          <ArrowRight className="w-3 h-3" />
+                        </Link>
+                        {account.externalAccountId && (
+                          <button
+                            onClick={() => handleSync(account)}
+                            disabled={syncingId === account.id}
+                            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
+                            title="Sync from bank"
+                          >
+                            <RefreshCw className={`w-3 h-3 ${syncingId === account.id ? "animate-spin" : ""}`} />
+                            {syncingId === account.id ? "Syncing..." : "Sync"}
+                          </button>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Retired accounts */}
+          {retiredAccounts.length > 0 && (
+            <div>
+              <button
+                onClick={() => setShowRetired((v) => !v)}
+                className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-3"
+              >
+                {showRetired ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                <Archive className="w-3.5 h-3.5" />
+                Retired accounts ({retiredAccounts.length})
+              </button>
+              {showRetired && (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {retiredAccounts.map((account) => {
+                    const balance = parseFloat(account.balance);
+                    const Icon = accountIcons[account.type] ?? Wallet;
+
+                    return (
+                      <Card
+                        key={account.id}
+                        className="border-border/40 shadow-sm opacity-60"
+                      >
+                        <CardContent className="p-5">
+                          <div className="flex items-start justify-between mb-4">
+                            <div
+                              className="w-11 h-11 rounded-xl flex items-center justify-center"
+                              style={{ backgroundColor: account.color + "14" }}
+                            >
+                              <Icon className="w-5 h-5 text-muted-foreground" />
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
+                                Retired
+                              </span>
+                              <button
+                                onClick={() => handleRestore(account)}
+                                className="p-1.5 rounded-lg text-muted-foreground hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+                                title="Restore account"
+                              >
+                                <RotateCcw className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => setDeleteAccount(account)}
+                                className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-500 hover:bg-rose-50 transition-colors"
+                                title="Delete account"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                          <p className="text-sm font-medium text-muted-foreground">
+                            {account.name}
+                          </p>
+                          <p className="text-2xl font-bold mt-1 text-muted-foreground">
+                            {formatCurrency(balance, account.currency)}
+                          </p>
+                          <div className="mt-3">
+                            <Link
+                              href={`/transactions?accountId=${account.id}`}
+                              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
+                            >
+                              View transactions
+                              <ArrowRight className="w-3 h-3" />
+                            </Link>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </>
       )}
     </div>
   );

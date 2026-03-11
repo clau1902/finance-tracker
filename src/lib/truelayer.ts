@@ -64,6 +64,7 @@ export function buildAuthUrl(clientId: string, redirectUri: string): string {
     client_id: clientId,
     scope: "accounts balance transactions",
     redirect_uri: redirectUri,
+    ...(process.env.TRUELAYER_SANDBOX !== "false" && { providers: "mock" }),
   });
   return `${TRUELAYER_AUTH_URL}/?${params.toString()}`;
 }

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { transactions, accounts, budgets } from "@/lib/schema";
-import { eq, sum, desc, gte, lte, and, count } from "drizzle-orm";
+import { eq, sum, desc, gte, lte, and, count, lt } from "drizzle-orm";
 import { requireAuth, applyRateLimit } from "@/lib/api";
 
 export async function GET(req: NextRequest) {
@@ -15,48 +15,69 @@ export async function GET(req: NextRequest) {
   try {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
     const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+    const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
 
     const allAccounts = await db
       .select()
       .from(accounts)
       .where(eq(accounts.userId, userId!));
 
-    const totalBalance = allAccounts.reduce(
-      (s, a) => s + parseFloat(String(a.balance)),
-      0
-    );
+    // Determine the primary currency (most accounts use it)
+    const currencyCount: Record<string, number> = {};
+    for (const a of allAccounts) {
+      currencyCount[a.currency] = (currencyCount[a.currency] || 0) + 1;
+    }
+    const primaryCurrency =
+      Object.entries(currencyCount).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "USD";
 
+    // Total balance per currency
+    const balanceByCurrency: Record<string, number> = {};
+    for (const a of allAccounts) {
+      balanceByCurrency[a.currency] =
+        (balanceByCurrency[a.currency] || 0) + parseFloat(String(a.balance));
+    }
+    const totalBalance = balanceByCurrency[primaryCurrency] ?? 0;
+
+    // Income/expense sums — join with accounts to filter by primary currency only
     const [{ income: monthIncome }] = await db
       .select({ income: sum(transactions.amount) })
       .from(transactions)
+      .innerJoin(accounts, eq(transactions.accountId, accounts.id))
       .where(
         and(
           eq(transactions.userId, userId!),
           eq(transactions.type, "income"),
-          gte(transactions.date, startOfMonth)
+          eq(accounts.currency, primaryCurrency),
+          gte(transactions.date, startOfMonth),
+          lt(transactions.date, startOfNextMonth)
         )
       );
 
     const [{ expense: monthExpense }] = await db
       .select({ expense: sum(transactions.amount) })
       .from(transactions)
+      .innerJoin(accounts, eq(transactions.accountId, accounts.id))
       .where(
         and(
           eq(transactions.userId, userId!),
           eq(transactions.type, "expense"),
-          gte(transactions.date, startOfMonth)
+          eq(accounts.currency, primaryCurrency),
+          gte(transactions.date, startOfMonth),
+          lt(transactions.date, startOfNextMonth)
         )
       );
 
     const [{ lastIncome: lastMonthIncome }] = await db
       .select({ lastIncome: sum(transactions.amount) })
       .from(transactions)
+      .innerJoin(accounts, eq(transactions.accountId, accounts.id))
       .where(
         and(
           eq(transactions.userId, userId!),
           eq(transactions.type, "income"),
+          eq(accounts.currency, primaryCurrency),
           gte(transactions.date, startOfLastMonth),
           lte(transactions.date, endOfLastMonth)
         )
@@ -65,10 +86,12 @@ export async function GET(req: NextRequest) {
     const [{ lastExpense: lastMonthExpense }] = await db
       .select({ lastExpense: sum(transactions.amount) })
       .from(transactions)
+      .innerJoin(accounts, eq(transactions.accountId, accounts.id))
       .where(
         and(
           eq(transactions.userId, userId!),
           eq(transactions.type, "expense"),
+          eq(accounts.currency, primaryCurrency),
           gte(transactions.date, startOfLastMonth),
           lte(transactions.date, endOfLastMonth)
         )
@@ -81,19 +104,21 @@ export async function GET(req: NextRequest) {
       limit: 8,
     });
 
-    // Monthly trend — last 6 months
+    // Monthly trend — last 6 months (primary currency only)
     const monthlyTrend = [];
     for (let i = 5; i >= 0; i--) {
       const mStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const mEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59);
+      const mEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59, 999);
 
       const [{ inc }] = await db
         .select({ inc: sum(transactions.amount) })
         .from(transactions)
+        .innerJoin(accounts, eq(transactions.accountId, accounts.id))
         .where(
           and(
             eq(transactions.userId, userId!),
             eq(transactions.type, "income"),
+            eq(accounts.currency, primaryCurrency),
             gte(transactions.date, mStart),
             lte(transactions.date, mEnd)
           )
@@ -102,10 +127,12 @@ export async function GET(req: NextRequest) {
       const [{ exp }] = await db
         .select({ exp: sum(transactions.amount) })
         .from(transactions)
+        .innerJoin(accounts, eq(transactions.accountId, accounts.id))
         .where(
           and(
             eq(transactions.userId, userId!),
             eq(transactions.type, "expense"),
+            eq(accounts.currency, primaryCurrency),
             gte(transactions.date, mStart),
             lte(transactions.date, mEnd)
           )
@@ -166,6 +193,8 @@ export async function GET(req: NextRequest) {
       .where(eq(budgets.userId, userId!));
 
     return NextResponse.json({
+      primaryCurrency,
+      balanceByCurrency,
       totalBalance,
       monthIncome: parseFloat(String(monthIncome || 0)),
       monthExpense: parseFloat(String(monthExpense || 0)),

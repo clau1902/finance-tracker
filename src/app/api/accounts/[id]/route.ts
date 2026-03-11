@@ -48,6 +48,7 @@ export async function PATCH(
         name: data.name ?? existing.name,
         type: data.type ?? existing.type,
         color: data.color ?? existing.color,
+        ...(data.retired !== undefined && { retired: data.retired }),
       })
       .where(eq(accounts.id, accountId))
       .returning();

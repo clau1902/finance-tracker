@@ -37,6 +37,7 @@ export const accountPatchSchema = z.object({
     .string()
     .regex(/^#[0-9a-fA-F]{6}$/)
     .optional(),
+  retired: z.boolean().optional(),
 });
 
 export const budgetSchema = z.object({

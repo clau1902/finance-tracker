@@ -10,7 +10,7 @@ interface TransactionRowProps {
     type: "income" | "expense";
     date: string;
     category?: { name: string; color: string; icon: string } | null;
-    account?: { name: string } | null;
+    account?: { name: string; currency?: string } | null;
   };
   onDelete?: (id: number) => void;
 }
@@ -51,7 +51,7 @@ export function TransactionRow({ transaction, onDelete }: TransactionRowProps) {
           }`}
         >
           {isIncome ? "+" : "-"}
-          {formatCurrency(amount)}
+          {formatCurrency(amount, transaction.account?.currency)}
         </span>
         {onDelete && (
           <button

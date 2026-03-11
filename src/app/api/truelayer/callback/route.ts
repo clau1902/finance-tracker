@@ -80,6 +80,11 @@ export async function GET(req: NextRequest) {
 
       if (existing.length > 0) {
         dbAccountId = existing[0].id;
+        // Refresh the access token and currency so syncing works after reconnect
+        await db
+          .update(accounts)
+          .set({ externalAccessToken: accessToken, currency: tlAccount.currency })
+          .where(eq(accounts.id, dbAccountId));
       } else {
         const balance = await getBalance(accessToken, tlAccount.account_id);
         const type = mapAccountType(tlAccount.account_type);
@@ -91,6 +96,7 @@ export async function GET(req: NextRequest) {
             name: tlAccount.display_name || tlAccount.provider.display_name,
             type,
             balance: String(balance?.current ?? 0),
+            currency: tlAccount.currency,
             color: colorForType(type),
             externalAccountId: tlAccount.account_id,
             externalAccessToken: accessToken,
@@ -116,7 +122,7 @@ export async function GET(req: NextRequest) {
           .limit(1);
         if (existingTx.length > 0) continue;
 
-        const isCredit = tlTx.transaction_type === "CREDIT" || tlTx.amount > 0;
+        const isCredit = tlTx.transaction_type === "CREDIT";
         await db.insert(transactions).values({
           userId: userId!,
           accountId: dbAccountId,

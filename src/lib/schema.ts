@@ -42,11 +42,13 @@ export const accounts = pgTable("accounts", {
   balance: numeric("balance", { precision: 12, scale: 2 })
     .notNull()
     .default("0"),
+  currency: text("currency").notNull().default("USD"),
   color: text("color").notNull().default("#0d9488"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   // Open banking fields (TrueLayer)
-  externalAccountId: text("yapily_account_id"),
-  externalAccessToken: text("yapily_consent_token"),
+  externalAccountId: text("truelayer_account_id"),
+  externalAccessToken: text("truelayer_access_token"),
+  retired: boolean("retired").notNull().default(false),
 });
 
 export const categories = pgTable("categories", {
