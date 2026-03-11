@@ -36,12 +36,15 @@ import { formatCurrency } from "@/lib/format";
 interface DashboardData {
   primaryCurrency: string;
   balanceByCurrency: Record<string, number>;
-  totalBalance: number;
-  monthIncome: number;
-  monthExpense: number;
-  lastMonthIncome: number;
-  lastMonthExpense: number;
-  monthlySavings: number;
+  monthIncomeByCurrency: Record<string, number>;
+  monthExpenseByCurrency: Record<string, number>;
+  lastMonthIncomeByCurrency: Record<string, number>;
+  lastMonthExpenseByCurrency: Record<string, number>;
+  monthlySavingsByCurrency: Record<string, number>;
+  convertedTotalBalance: number | null;
+  convertedMonthIncome: number | null;
+  convertedMonthExpense: number | null;
+  convertedMonthlySavings: number | null;
   accounts: Account[];
   recentTransactions: Transaction[];
   monthlyTrend: { month: string; income: number; expenses: number }[];
@@ -161,60 +164,42 @@ export function DashboardContent() {
   if (loading) return <DashboardSkeleton />;
   if (!data) return null;
 
-  const incomePct = trendPct(data.monthIncome, data.lastMonthIncome);
-  const expensePct = trendPct(data.monthExpense, data.lastMonthExpense);
-  const savingsRate =
-    data.monthIncome > 0
-      ? Math.round((data.monthlySavings / data.monthIncome) * 100)
-      : null;
-
   const c = data.primaryCurrency;
-  const summaryCards = [
-    {
-      label: "Total Balance",
-      value: formatCurrency(data.totalBalance, c),
-      icon: Wallet,
-      iconColor: "text-primary",
-      iconBg: "bg-primary/10",
-      trend: null,
-    },
-    {
-      label: "Monthly Income",
-      value: formatCurrency(data.monthIncome, c),
-      icon: TrendingUp,
-      iconColor: "text-emerald-600",
-      iconBg: "bg-emerald-100",
-      trend: incomePct,
-      trendPositiveIsGood: true,
-    },
-    {
-      label: "Monthly Expenses",
-      value: formatCurrency(data.monthExpense, c),
-      icon: TrendingDown,
-      iconColor: "text-rose-500",
-      iconBg: "bg-rose-100",
-      trend: expensePct,
-      trendPositiveIsGood: false,
-    },
-    {
-      label: "Net Savings",
-      value: formatCurrency(data.monthlySavings, c),
-      icon: PiggyBank,
-      iconColor: data.monthlySavings >= 0 ? "text-teal-600" : "text-rose-500",
-      iconBg: data.monthlySavings >= 0 ? "bg-teal-100" : "bg-rose-100",
-      trend: null,
-      subtitle:
-        savingsRate !== null
-          ? `${savingsRate}% savings rate`
-          : null,
-      subtitleColor:
-        savingsRate !== null && savingsRate >= 20
-          ? "text-emerald-600"
-          : savingsRate !== null && savingsRate >= 0
-          ? "text-amber-600"
-          : "text-rose-500",
-    },
-  ];
+
+  // Render a map of per-currency values as stacked lines
+  function CurrencyValues({
+    map,
+    colorFn,
+  }: {
+    map: Record<string, number>;
+    colorFn?: (v: number) => string;
+  }) {
+    const entries = Object.entries(map).filter(([, v]) => v !== 0);
+    if (entries.length === 0) return <span className="text-2xl font-semibold text-foreground">{formatCurrency(0, c)}</span>;
+    return (
+      <div className="space-y-0.5">
+        {entries.map(([cur, val], i) => (
+          <p
+            key={cur}
+            className={`font-semibold tabular-nums ${
+              i === 0 ? "text-2xl" : "text-sm text-muted-foreground"
+            } ${colorFn ? colorFn(val) : "text-foreground"}`}
+          >
+            {formatCurrency(val, cur)}
+          </p>
+        ))}
+      </div>
+    );
+  }
+
+  const isMultiCurrency = Object.keys(data.balanceByCurrency).length > 1;
+
+  // Per-currency trend % (primary currency only, for simplicity)
+  const incomePct = trendPct(data.monthIncomeByCurrency[c] ?? 0, data.lastMonthIncomeByCurrency[c] ?? 0);
+  const expensePct = trendPct(data.monthExpenseByCurrency[c] ?? 0, data.lastMonthExpenseByCurrency[c] ?? 0);
+  const primarySavings = data.monthlySavingsByCurrency[c] ?? 0;
+  const primaryIncome = data.monthIncomeByCurrency[c] ?? 0;
+  const savingsRate = primaryIncome > 0 ? Math.round((primarySavings / primaryIncome) * 100) : null;
 
   return (
     <div className="p-6 space-y-6">
@@ -243,52 +228,105 @@ export function DashboardContent() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-        {summaryCards.map((card) => {
-          const Icon = card.icon;
-          const pct = card.trend;
-          const isPositive = pct !== null && pct >= 0;
-          const isGood =
-            pct === null
-              ? null
-              : card.trendPositiveIsGood
-              ? isPositive
-              : !isPositive;
-
-          return (
-            <Card key={card.label} className="border-border/60 shadow-sm">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      {card.label}
-                    </p>
-                    <p className="text-2xl font-semibold mt-1 text-foreground">
-                      {card.value}
-                    </p>
-                    {pct !== null && (
-                      <p
-                        className={`text-xs mt-1 font-medium ${
-                          isGood ? "text-emerald-600" : "text-rose-500"
-                        }`}
-                      >
-                        {isPositive ? "+" : ""}
-                        {pct.toFixed(1)}% vs last month
-                      </p>
-                    )}
-                    {"subtitle" in card && card.subtitle && (
-                      <p className={`text-xs mt-1 font-medium ${"subtitleColor" in card ? card.subtitleColor : "text-muted-foreground"}`}>
-                        {card.subtitle}
-                      </p>
-                    )}
-                  </div>
-                  <div className={`w-10 h-10 rounded-xl ${card.iconBg} flex items-center justify-center`}>
-                    <Icon className={`w-5 h-5 ${card.iconColor}`} />
-                  </div>
+        {/* Total Balance */}
+        <Card className="border-border/60 shadow-sm">
+          <CardContent className="p-5">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Balance</p>
+                <div className="mt-1">
+                  <CurrencyValues map={data.balanceByCurrency} />
                 </div>
-              </CardContent>
-            </Card>
-          );
-        })}
+                {isMultiCurrency && data.convertedTotalBalance !== null && (
+                  <p className="text-xs mt-1 text-muted-foreground">
+                    ≈ {formatCurrency(data.convertedTotalBalance, c)} total
+                  </p>
+                )}
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                <Wallet className="w-5 h-5 text-primary" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Monthly Income */}
+        <Card className="border-border/60 shadow-sm">
+          <CardContent className="p-5">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Monthly Income</p>
+                <div className="mt-1">
+                  <CurrencyValues map={data.monthIncomeByCurrency} />
+                </div>
+                {isMultiCurrency && data.convertedMonthIncome !== null && (
+                  <p className="text-xs mt-0.5 text-muted-foreground">≈ {formatCurrency(data.convertedMonthIncome, c)} total</p>
+                )}
+                {incomePct !== null && (
+                  <p className={`text-xs mt-1 font-medium ${incomePct >= 0 ? "text-emerald-600" : "text-rose-500"}`}>
+                    {incomePct >= 0 ? "+" : ""}{incomePct.toFixed(1)}% vs last month
+                  </p>
+                )}
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
+                <TrendingUp className="w-5 h-5 text-emerald-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Monthly Expenses */}
+        <Card className="border-border/60 shadow-sm">
+          <CardContent className="p-5">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Monthly Expenses</p>
+                <div className="mt-1">
+                  <CurrencyValues map={data.monthExpenseByCurrency} />
+                </div>
+                {isMultiCurrency && data.convertedMonthExpense !== null && (
+                  <p className="text-xs mt-0.5 text-muted-foreground">≈ {formatCurrency(data.convertedMonthExpense, c)} total</p>
+                )}
+                {expensePct !== null && (
+                  <p className={`text-xs mt-1 font-medium ${expensePct <= 0 ? "text-emerald-600" : "text-rose-500"}`}>
+                    {expensePct >= 0 ? "+" : ""}{expensePct.toFixed(1)}% vs last month
+                  </p>
+                )}
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center">
+                <TrendingDown className="w-5 h-5 text-rose-500" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Net Savings */}
+        <Card className="border-border/60 shadow-sm">
+          <CardContent className="p-5">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Net Savings</p>
+                <div className="mt-1">
+                  <CurrencyValues
+                    map={data.monthlySavingsByCurrency}
+                    colorFn={(v) => v >= 0 ? "text-foreground" : "text-rose-500"}
+                  />
+                </div>
+                {isMultiCurrency && data.convertedMonthlySavings !== null && (
+                  <p className="text-xs mt-0.5 text-muted-foreground">≈ {formatCurrency(data.convertedMonthlySavings, c)} total</p>
+                )}
+                {savingsRate !== null && (
+                  <p className={`text-xs mt-1 font-medium ${savingsRate >= 20 ? "text-emerald-600" : savingsRate >= 0 ? "text-amber-600" : "text-rose-500"}`}>
+                    {savingsRate}% savings rate
+                  </p>
+                )}
+              </div>
+              <div className={`w-10 h-10 rounded-xl ${primarySavings >= 0 ? "bg-teal-100" : "bg-rose-100"} flex items-center justify-center`}>
+                <PiggyBank className={`w-5 h-5 ${primarySavings >= 0 ? "text-teal-600" : "text-rose-500"}`} />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Charts Row */}

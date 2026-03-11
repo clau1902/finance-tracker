@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { transactions, accounts, budgets } from "@/lib/schema";
 import { eq, sum, desc, gte, lte, and, count, lt } from "drizzle-orm";
 import { requireAuth, applyRateLimit } from "@/lib/api";
+import { getExchangeRates, sumConverted } from "@/lib/fx";
 
 export async function GET(req: NextRequest) {
   const { userId, error } = await requireAuth();
@@ -24,78 +25,87 @@ export async function GET(req: NextRequest) {
       .from(accounts)
       .where(eq(accounts.userId, userId!));
 
-    // Determine the primary currency (most accounts use it)
-    const currencyCount: Record<string, number> = {};
-    for (const a of allAccounts) {
-      currencyCount[a.currency] = (currencyCount[a.currency] || 0) + 1;
-    }
-    const primaryCurrency =
-      Object.entries(currencyCount).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "USD";
-
-    // Total balance per currency
+    // Total balance grouped by currency
     const balanceByCurrency: Record<string, number> = {};
     for (const a of allAccounts) {
       balanceByCurrency[a.currency] =
         (balanceByCurrency[a.currency] || 0) + parseFloat(String(a.balance));
     }
-    const totalBalance = balanceByCurrency[primaryCurrency] ?? 0;
 
-    // Income/expense sums — join with accounts to filter by primary currency only
-    const [{ income: monthIncome }] = await db
-      .select({ income: sum(transactions.amount) })
+    // Helper: group a sum query result into a Record<currency, number>
+    function toMap(rows: { currency: string; total: string | null }[]) {
+      const map: Record<string, number> = {};
+      for (const r of rows) map[r.currency] = parseFloat(String(r.total || 0));
+      return map;
+    }
+
+    // Income/expense this month — grouped by account currency
+    const monthIncomeRows = await db
+      .select({ currency: accounts.currency, total: sum(transactions.amount) })
       .from(transactions)
       .innerJoin(accounts, eq(transactions.accountId, accounts.id))
-      .where(
-        and(
-          eq(transactions.userId, userId!),
-          eq(transactions.type, "income"),
-          eq(accounts.currency, primaryCurrency),
-          gte(transactions.date, startOfMonth),
-          lt(transactions.date, startOfNextMonth)
-        )
-      );
+      .where(and(eq(transactions.userId, userId!), eq(transactions.type, "income"),
+        gte(transactions.date, startOfMonth), lt(transactions.date, startOfNextMonth)))
+      .groupBy(accounts.currency);
 
-    const [{ expense: monthExpense }] = await db
-      .select({ expense: sum(transactions.amount) })
+    const monthExpenseRows = await db
+      .select({ currency: accounts.currency, total: sum(transactions.amount) })
       .from(transactions)
       .innerJoin(accounts, eq(transactions.accountId, accounts.id))
-      .where(
-        and(
-          eq(transactions.userId, userId!),
-          eq(transactions.type, "expense"),
-          eq(accounts.currency, primaryCurrency),
-          gte(transactions.date, startOfMonth),
-          lt(transactions.date, startOfNextMonth)
-        )
-      );
+      .where(and(eq(transactions.userId, userId!), eq(transactions.type, "expense"),
+        gte(transactions.date, startOfMonth), lt(transactions.date, startOfNextMonth)))
+      .groupBy(accounts.currency);
 
-    const [{ lastIncome: lastMonthIncome }] = await db
-      .select({ lastIncome: sum(transactions.amount) })
+    // Income/expense last month — grouped by account currency
+    const lastMonthIncomeRows = await db
+      .select({ currency: accounts.currency, total: sum(transactions.amount) })
       .from(transactions)
       .innerJoin(accounts, eq(transactions.accountId, accounts.id))
-      .where(
-        and(
-          eq(transactions.userId, userId!),
-          eq(transactions.type, "income"),
-          eq(accounts.currency, primaryCurrency),
-          gte(transactions.date, startOfLastMonth),
-          lte(transactions.date, endOfLastMonth)
-        )
-      );
+      .where(and(eq(transactions.userId, userId!), eq(transactions.type, "income"),
+        gte(transactions.date, startOfLastMonth), lte(transactions.date, endOfLastMonth)))
+      .groupBy(accounts.currency);
 
-    const [{ lastExpense: lastMonthExpense }] = await db
-      .select({ lastExpense: sum(transactions.amount) })
+    const lastMonthExpenseRows = await db
+      .select({ currency: accounts.currency, total: sum(transactions.amount) })
       .from(transactions)
       .innerJoin(accounts, eq(transactions.accountId, accounts.id))
-      .where(
-        and(
-          eq(transactions.userId, userId!),
-          eq(transactions.type, "expense"),
-          eq(accounts.currency, primaryCurrency),
-          gte(transactions.date, startOfLastMonth),
-          lte(transactions.date, endOfLastMonth)
-        )
-      );
+      .where(and(eq(transactions.userId, userId!), eq(transactions.type, "expense"),
+        gte(transactions.date, startOfLastMonth), lte(transactions.date, endOfLastMonth)))
+      .groupBy(accounts.currency);
+
+    const monthIncomeByCurrency = toMap(monthIncomeRows);
+    const monthExpenseByCurrency = toMap(monthExpenseRows);
+    const lastMonthIncomeByCurrency = toMap(lastMonthIncomeRows);
+    const lastMonthExpenseByCurrency = toMap(lastMonthExpenseRows);
+
+    // Savings = income - expense per currency
+    const allCurrencies = Object.keys(balanceByCurrency);
+    const monthlySavingsByCurrency: Record<string, number> = {};
+    for (const c of allCurrencies) {
+      monthlySavingsByCurrency[c] =
+        (monthIncomeByCurrency[c] ?? 0) - (monthExpenseByCurrency[c] ?? 0);
+    }
+
+    // Primary currency = most accounts (used for the trend chart)
+    const currencyCount: Record<string, number> = {};
+    for (const a of allAccounts) currencyCount[a.currency] = (currencyCount[a.currency] || 0) + 1;
+    const primaryCurrency =
+      Object.entries(currencyCount).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "USD";
+
+    // FX conversion — only fetch rates when there are multiple currencies
+    let fxRates: Record<string, number> = {};
+    let convertedTotalBalance: number | null = null;
+    let convertedMonthIncome: number | null = null;
+    let convertedMonthExpense: number | null = null;
+    let convertedMonthlySavings: number | null = null;
+
+    if (allCurrencies.length > 1) {
+      fxRates = await getExchangeRates(primaryCurrency);
+      convertedTotalBalance = sumConverted(balanceByCurrency, primaryCurrency, fxRates);
+      convertedMonthIncome = sumConverted(monthIncomeByCurrency, primaryCurrency, fxRates);
+      convertedMonthExpense = sumConverted(monthExpenseByCurrency, primaryCurrency, fxRates);
+      convertedMonthlySavings = sumConverted(monthlySavingsByCurrency, primaryCurrency, fxRates);
+    }
 
     const recentTransactions = await db.query.transactions.findMany({
       where: eq(transactions.userId, userId!),
@@ -195,13 +205,16 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       primaryCurrency,
       balanceByCurrency,
-      totalBalance,
-      monthIncome: parseFloat(String(monthIncome || 0)),
-      monthExpense: parseFloat(String(monthExpense || 0)),
-      lastMonthIncome: parseFloat(String(lastMonthIncome || 0)),
-      lastMonthExpense: parseFloat(String(lastMonthExpense || 0)),
-      monthlySavings:
-        parseFloat(String(monthIncome || 0)) - parseFloat(String(monthExpense || 0)),
+      monthIncomeByCurrency,
+      monthExpenseByCurrency,
+      lastMonthIncomeByCurrency,
+      lastMonthExpenseByCurrency,
+      monthlySavingsByCurrency,
+      // Converted totals (null when only one currency — no conversion needed)
+      convertedTotalBalance,
+      convertedMonthIncome,
+      convertedMonthExpense,
+      convertedMonthlySavings,
       accounts: allAccounts,
       recentTransactions,
       monthlyTrend,

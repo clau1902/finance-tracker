@@ -48,7 +48,7 @@ interface Transaction {
   accountId?: number | null;
   externalId?: string | null;
   category?: { name: string; color: string; icon: string } | null;
-  account?: { name: string } | null;
+  account?: { name: string; currency: string } | null;
 }
 
 interface Category {
@@ -249,6 +249,18 @@ export function TransactionsContent() {
 
   const filtered = transactions;
 
+  // Group totals by currency
+  const currencyTotals = filtered.reduce<Record<string, { income: number; expense: number }>>((acc, tx) => {
+    const cur = tx.account?.currency ?? "USD";
+    if (!acc[cur]) acc[cur] = { income: 0, expense: 0 };
+    if (tx.type === "income") acc[cur].income += parseFloat(tx.amount);
+    else acc[cur].expense += parseFloat(tx.amount);
+    return acc;
+  }, {});
+  const currencies = Object.keys(currencyTotals);
+  const isMultiCurrency = currencies.length > 1;
+
+  // Single-currency totals (used when uniform)
   const totalIncome = filtered
     .filter((tx) => tx.type === "income")
     .reduce((sum, tx) => sum + parseFloat(tx.amount), 0);
@@ -264,7 +276,8 @@ export function TransactionsContent() {
       const txs = filtered.filter((tx) => tx.accountId === a.id);
       const income = txs.filter((tx) => tx.type === "income").reduce((s, tx) => s + parseFloat(tx.amount), 0);
       const expense = txs.filter((tx) => tx.type === "expense").reduce((s, tx) => s + parseFloat(tx.amount), 0);
-      return { account: a, income, expense, net: income - expense };
+      const currency = txs[0]?.account?.currency ?? "USD";
+      return { account: a, income, expense, net: income - expense, currency };
     });
 
   // Group by date label
@@ -305,31 +318,54 @@ export function TransactionsContent() {
       </div>
 
       {/* Summary bar */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className="bg-emerald-50 border border-emerald-200/60 rounded-xl p-3.5">
-          <p className="text-xs text-emerald-700 font-medium">Total Income</p>
-          <p className="text-lg font-semibold text-emerald-700 mt-0.5">
-            +{formatCurrency(totalIncome)}
-          </p>
+      {isMultiCurrency ? (
+        <div className="border border-border/60 rounded-xl overflow-hidden">
+          <div className="grid grid-cols-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide px-4 py-2 bg-secondary/40 border-b border-border/40">
+            <span>Income</span>
+            <span>Expenses</span>
+            <span>Net</span>
+          </div>
+          {currencies.map((cur) => {
+            const { income, expense } = currencyTotals[cur];
+            const net = income - expense;
+            return (
+              <div key={cur} className="grid grid-cols-3 px-4 py-2.5 border-b border-border/30 last:border-0 text-sm">
+                <span className="font-semibold text-emerald-600">+{formatCurrency(income, cur)}</span>
+                <span className="font-semibold text-rose-500">-{formatCurrency(expense, cur)}</span>
+                <span className={`font-semibold ${net >= 0 ? "text-emerald-600" : "text-rose-500"}`}>
+                  {net >= 0 ? "+" : ""}{formatCurrency(net, cur)}
+                </span>
+              </div>
+            );
+          })}
         </div>
-        <div className="bg-rose-50 border border-rose-200/60 rounded-xl p-3.5">
-          <p className="text-xs text-rose-600 font-medium">Total Expenses</p>
-          <p className="text-lg font-semibold text-rose-600 mt-0.5">
-            -{formatCurrency(totalExpense)}
-          </p>
+      ) : (
+        <div className="grid grid-cols-3 gap-3">
+          <div className="bg-emerald-50 border border-emerald-200/60 rounded-xl p-3.5">
+            <p className="text-xs text-emerald-700 font-medium">Total Income</p>
+            <p className="text-lg font-semibold text-emerald-700 mt-0.5">
+              +{formatCurrency(totalIncome, currencies[0] ?? "USD")}
+            </p>
+          </div>
+          <div className="bg-rose-50 border border-rose-200/60 rounded-xl p-3.5">
+            <p className="text-xs text-rose-600 font-medium">Total Expenses</p>
+            <p className="text-lg font-semibold text-rose-600 mt-0.5">
+              -{formatCurrency(totalExpense, currencies[0] ?? "USD")}
+            </p>
+          </div>
+          <div className="bg-secondary border border-border/60 rounded-xl p-3.5">
+            <p className="text-xs text-muted-foreground font-medium">Net</p>
+            <p
+              className={`text-lg font-semibold mt-0.5 ${
+                totalIncome - totalExpense >= 0 ? "text-emerald-700" : "text-rose-600"
+              }`}
+            >
+              {totalIncome - totalExpense >= 0 ? "+" : ""}
+              {formatCurrency(totalIncome - totalExpense, currencies[0] ?? "USD")}
+            </p>
+          </div>
         </div>
-        <div className="bg-secondary border border-border/60 rounded-xl p-3.5">
-          <p className="text-xs text-muted-foreground font-medium">Net</p>
-          <p
-            className={`text-lg font-semibold mt-0.5 ${
-              totalIncome - totalExpense >= 0 ? "text-emerald-700" : "text-rose-600"
-            }`}
-          >
-            {totalIncome - totalExpense >= 0 ? "+" : ""}
-            {formatCurrency(totalIncome - totalExpense)}
-          </p>
-        </div>
-      </div>
+      )}
 
       {/* Per-account breakdown */}
       {accountFilter === "all" && accountBreakdown.length > 1 && (
@@ -340,7 +376,7 @@ export function TransactionsContent() {
             </span>
           </div>
           <div className="divide-y divide-border/40">
-            {accountBreakdown.map(({ account, income, expense, net }) => (
+            {accountBreakdown.map(({ account, income, expense, net, currency }) => (
               <div key={account.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
                 <div className="flex items-center gap-1.5 flex-1 min-w-0">
                   <span className="font-medium truncate">{account.name}</span>
@@ -351,18 +387,18 @@ export function TransactionsContent() {
                     </span>
                   )}
                 </div>
-                <span className="text-emerald-600 tabular-nums w-24 text-right">
-                  +{formatCurrency(income)}
+                <span className="text-emerald-600 tabular-nums w-28 text-right">
+                  +{formatCurrency(income, currency)}
                 </span>
-                <span className="text-rose-500 tabular-nums w-24 text-right">
-                  -{formatCurrency(expense)}
+                <span className="text-rose-500 tabular-nums w-28 text-right">
+                  -{formatCurrency(expense, currency)}
                 </span>
                 <span
-                  className={`tabular-nums w-24 text-right font-semibold ${
+                  className={`tabular-nums w-28 text-right font-semibold ${
                     net >= 0 ? "text-emerald-600" : "text-rose-500"
                   }`}
                 >
-                  {net >= 0 ? "+" : ""}{formatCurrency(net)}
+                  {net >= 0 ? "+" : ""}{formatCurrency(net, currency)}
                 </span>
               </div>
             ))}
@@ -602,7 +638,7 @@ export function TransactionsContent() {
                               }`}
                             >
                               {isIncome ? "+" : "-"}
-                              {formatCurrency(amount)}
+                              {formatCurrency(amount, tx.account?.currency ?? "USD")}
                             </span>
                             <Button
                               variant="ghost"

@@ -107,24 +107,29 @@ export function AccountsContent() {
   const activeAccounts = accounts.filter((a) => !a.retired);
   const retiredAccounts = accounts.filter((a) => a.retired);
 
-  const currencyCount: Record<string, number> = {};
-  for (const a of activeAccounts) {
-    currencyCount[a.currency] = (currencyCount[a.currency] || 0) + 1;
+  // Group balances by currency
+  const currencies = [...new Set(activeAccounts.map((a) => a.currency))];
+  const multipleCurrencies = currencies.length > 1;
+
+  // Per-currency assets, liabilities, net worth
+  const netWorthByCurrency: Record<string, { assets: number; liabilities: number; net: number }> = {};
+  for (const cur of currencies) {
+    const accs = activeAccounts.filter((a) => a.currency === cur);
+    const assets = accs.filter((a) => parseFloat(a.balance) >= 0).reduce((s, a) => s + parseFloat(a.balance), 0);
+    const liabilities = accs.filter((a) => parseFloat(a.balance) < 0).reduce((s, a) => s + parseFloat(a.balance), 0);
+    netWorthByCurrency[cur] = { assets, liabilities, net: assets + liabilities };
   }
-  const primaryCurrency =
-    Object.entries(currencyCount).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "USD";
-  const primaryAccounts = activeAccounts.filter((a) => a.currency === primaryCurrency);
-  const multipleCurrencies = Object.keys(currencyCount).length > 1;
 
-  const assets = primaryAccounts
-    .filter((a) => parseFloat(a.balance) >= 0)
-    .reduce((sum, a) => sum + parseFloat(a.balance), 0);
+  // Primary currency for icon colour (most accounts)
+  const primaryCurrency = currencies.reduce((a, b) =>
+    activeAccounts.filter((x) => x.currency === a).length >= activeAccounts.filter((x) => x.currency === b).length ? a : b
+  , currencies[0] ?? "USD");
+  const primaryNet = netWorthByCurrency[primaryCurrency]?.net ?? 0;
 
-  const liabilities = primaryAccounts
-    .filter((a) => parseFloat(a.balance) < 0)
-    .reduce((sum, a) => sum + parseFloat(a.balance), 0);
-
-  const totalNetWorth = assets + liabilities;
+  // Backwards-compat single-currency vars (used below in JSX)
+  const assets = netWorthByCurrency[primaryCurrency]?.assets ?? 0;
+  const liabilities = netWorthByCurrency[primaryCurrency]?.liabilities ?? 0;
+  const totalNetWorth = primaryNet;
 
   const openEdit = (account: Account) => {
     setEditAccount(account);
@@ -432,12 +437,21 @@ export function AccountsContent() {
                   totalNetWorth >= 0 ? "text-foreground" : "text-rose-500"
                 }`}
               >
-                {formatCurrency(totalNetWorth, primaryCurrency)}
+                {multipleCurrencies ? (
+                  <span className="text-xl">
+                    {Object.entries(netWorthByCurrency).map(([cur, { net }], i) => (
+                      <span key={cur}>
+                        {i > 0 && <span className="text-muted-foreground mx-1">·</span>}
+                        <span className={net < 0 ? "text-rose-500" : ""}>{formatCurrency(net, cur)}</span>
+                      </span>
+                    ))}
+                  </span>
+                ) : (
+                  formatCurrency(totalNetWorth, primaryCurrency)
+                )}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
-                {multipleCurrencies
-                  ? `${primaryCurrency} accounts · ${activeAccounts.length} total`
-                  : `Across ${activeAccounts.length} active account${activeAccounts.length !== 1 ? "s" : ""}`}
+                Across {activeAccounts.length} active account{activeAccounts.length !== 1 ? "s" : ""}
               </p>
             </div>
             {activeAccounts.length > 0 && (
@@ -445,14 +459,18 @@ export function AccountsContent() {
                 <div>
                   <p className="text-xs text-muted-foreground">Assets</p>
                   <p className="text-sm font-semibold text-emerald-600">
-                    +{formatCurrency(assets, primaryCurrency)}
+                    {multipleCurrencies
+                      ? Object.entries(netWorthByCurrency).filter(([, v]) => v.assets > 0).map(([cur, v]) => `+${formatCurrency(v.assets, cur)}`).join(" · ")
+                      : `+${formatCurrency(assets, primaryCurrency)}`}
                   </p>
                 </div>
-                {liabilities < 0 && (
+                {Object.values(netWorthByCurrency).some((v) => v.liabilities < 0) && (
                   <div>
                     <p className="text-xs text-muted-foreground">Liabilities</p>
                     <p className="text-sm font-semibold text-rose-500">
-                      {formatCurrency(liabilities, primaryCurrency)}
+                      {multipleCurrencies
+                        ? Object.entries(netWorthByCurrency).filter(([, v]) => v.liabilities < 0).map(([cur, v]) => formatCurrency(v.liabilities, cur)).join(" · ")
+                        : formatCurrency(liabilities, primaryCurrency)}
                     </p>
                   </div>
                 )}
