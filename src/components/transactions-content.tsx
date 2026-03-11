@@ -375,6 +375,12 @@ export function TransactionsContent() {
               Breakdown by account
             </span>
           </div>
+          <div className="flex items-center gap-3 px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide bg-secondary/20 border-b border-border/40">
+            <span className="flex-1">Account</span>
+            <span className="w-28 text-right">Income</span>
+            <span className="w-28 text-right">Expenses</span>
+            <span className="w-28 text-right">Net</span>
+          </div>
           <div className="divide-y divide-border/40">
             {accountBreakdown.map(({ account, income, expense, net, currency }) => (
               <div key={account.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
