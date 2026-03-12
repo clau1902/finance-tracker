@@ -15,9 +15,9 @@ A self-hosted personal finance tracker — built with Next.js, PostgreSQL, and D
 FinanceTrack gives you a calm, clutter-free view of your personal finances:
 
 - **Dashboard** — guided onboarding checklist for new users (set balance → log transaction → create budget) that auto-dismisses on completion; monthly income vs. expenses chart (6 months); trend % vs last month per card; savings rate; per-category spending with month-over-month change indicators; recent transactions; account balances; skeleton loading states
-- **Transactions** — log, edit, and delete income and expenses; server-side search across full history with debounce; filter by type, category, account, and date range; quick date presets (this month, last month, last 3 months, this year); inline category reassignment with toast feedback; notes visible in list; CSV export; pagination with load more; date-grouped list; keyboard shortcut `N` to add a transaction
+- **Transactions** — log, edit, and delete income and expenses; server-side search across full history with debounce; filter by type, category, account, and date range; quick date presets (this month, last month, last 3 months, this year); inline category reassignment with toast feedback; notes visible in list; CSV export; pagination with load more; date-grouped list; keyboard shortcut `N` to add a transaction; **multi-currency support** — each transaction is displayed in its account's currency; summary bar shows per-currency totals when multiple currencies are present; breakdown by account with TrueLayer badge on connected accounts
 - **Budgets** — set monthly spending limits per category; navigate between months; overall status summary (on track / warning / over); days remaining in month; skeleton loading; visual progress bars with colour-coded alerts; sidebar badge shows live alert count (amber at 80%, red when over limit)
-- **Accounts** — add and manage accounts manually; edit, delete (with confirmation); net worth with assets vs. liabilities breakdown; "View transactions" link per account
+- **Accounts** — add accounts manually or connect a bank via TrueLayer (Open Banking); edit, delete (with confirmation); **retire** accounts to hide them from the active list and net worth without losing transaction history (restorable at any time); sync balance and transactions from connected banks; net worth with assets vs. liabilities breakdown (active accounts only); "View transactions" link per account
 - **Categories** — full CRUD for income and expense categories; 12-colour visual picker; deleting a category unlinks transactions gracefully
 - **Dark mode** — system-aware, toggled from the sidebar
 - **Mobile** — responsive layout with hamburger menu and slide-in sidebar drawer on small screens
@@ -55,6 +55,33 @@ FinanceTrack gives you a calm, clutter-free view of your personal finances:
 - CSP header: `unsafe-eval` is excluded in production (only present during development for Next.js HMR)
 - HTTP security headers (X-Frame-Options, HSTS, Referrer-Policy, Permissions-Policy, etc.)
 - PostgreSQL connection pool with SSL in production; SSL disabled automatically for internal Docker networking
+
+---
+
+## Open Banking (TrueLayer)
+
+FinanceTrack integrates with [TrueLayer](https://truelayer.com) to connect real bank accounts and automatically sync balances and transactions.
+
+### Setup
+
+1. Create an application at [console.truelayer.com](https://console.truelayer.com)
+2. Add your redirect URI: `https://<your-domain>/api/truelayer/callback` (and `http://localhost:3000/api/truelayer/callback` for local dev)
+3. Add the credentials to your `.env.local` (or `.env.docker`):
+
+```env
+TRUELAYER_CLIENT_ID=your-client-id
+TRUELAYER_CLIENT_SECRET=your-client-secret
+TRUELAYER_SANDBOX=false   # set to true to use TrueLayer sandbox with mock banks
+```
+
+When `TRUELAYER_SANDBOX=true` a mock bank provider is shown — useful for development and testing without real credentials.
+
+### How it works
+
+- Users click **Connect Bank** on the Accounts page and are redirected to TrueLayer's auth flow
+- On completion, the account is imported with its balance and last 90 days of transactions
+- Connected accounts show a **Sync** button to pull the latest balance and new transactions on demand
+- Transactions from TrueLayer carry a TrueLayer badge in the Transactions breakdown view
 
 ---
 
@@ -121,6 +148,11 @@ Create `.env.local` in the project root:
 POSTGRES_URL=postgresql://<user>:<password>@localhost:5432/finance_tracker
 AUTH_SECRET=<random-32-byte-base64-string>
 AUTH_URL=http://localhost:3000
+
+# TrueLayer Open Banking (optional)
+TRUELAYER_CLIENT_ID=your-client-id
+TRUELAYER_CLIENT_SECRET=your-client-secret
+TRUELAYER_SANDBOX=true
 ```
 
 Generate an auth secret:
@@ -201,6 +233,7 @@ src/
 ├── components/           # UI components
 ├── lib/
 │   ├── schema.ts         # Drizzle schema (users, accounts, transactions, budgets, categories)
+│   ├── truelayer.ts      # TrueLayer API client (auth, accounts, transactions, balances)
 │   ├── db.ts             # Database connection pool
 │   ├── api.ts            # Auth, rate-limit, and CSRF helpers
 │   ├── validate.ts       # Zod validation schemas
@@ -221,6 +254,7 @@ src/
    - `POSTGRES_PASSWORD` — strong random password
    - `AUTH_SECRET` — strong random secret (`openssl rand -base64 32`)
    - `AUTH_URL` — your public domain (e.g. `https://finance.yourdomain.com`)
+   - `TRUELAYER_CLIENT_ID` / `TRUELAYER_CLIENT_SECRET` / `TRUELAYER_SANDBOX=false` — if using Open Banking
 
 2. Run on your server:
    ```bash
@@ -233,8 +267,10 @@ src/
 
 1. Set `POSTGRES_URL` with SSL enabled
 2. Set `AUTH_SECRET` and `AUTH_URL` (your public domain)
-3. Run `npm run db:push` against the production database
+3. Set TrueLayer env vars if using Open Banking
 4. Build and start: `npm run build && npm start`
+
+> Database migrations run automatically on startup via `src/instrumentation.ts` — no manual `db:push` needed in production.
 
 For multi-instance deployments, swap the in-memory rate limiter (`src/lib/rate-limit.ts`) for [Upstash Redis](https://upstash.com).
 
