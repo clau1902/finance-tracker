@@ -1,5 +1,6 @@
+export const runtime = "nodejs";
+
 export async function register() {
-  // Only run on the Node.js server runtime (not Edge)
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
 
   const { migrate } = await import("drizzle-orm/node-postgres/migrator");

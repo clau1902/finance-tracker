@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { streamText, tool } from "ai";
+import { streamText, tool, stepCountIs, convertToModelMessages, UIMessage } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { z } from "zod";
 import { db } from "@/lib/db";
@@ -13,12 +13,13 @@ export async function POST(req: NextRequest) {
   const { userId, error } = await requireAuth();
   if (error) return error;
 
-  const ip = req.headers.get("x-forwarded-for") ?? "unknown";
   const rl = applyRateLimit(`chat:${userId}`, 20);
   if (rl) return rl;
 
-  const { messages } = await req.json();
+  const { messages }: { messages: UIMessage[] } = await req.json();
   const now = new Date();
+
+  const modelMessages = await convertToModelMessages(messages);
 
   const result = streamText({
     model: anthropic("claude-sonnet-4-6"),
@@ -27,12 +28,12 @@ Today is ${now.toLocaleDateString("en-US", { weekday: "long", year: "numeric", m
 Always use the provided tools to fetch real data before answering questions about finances.
 Be concise and clear. Format numbers with their currency symbol. Use bullet points for lists.
 Keep responses under 200 words unless the user asks for more detail.`,
-    messages,
-    maxSteps: 5,
+    messages: modelMessages,
+    stopWhen: stepCountIs(5),
     tools: {
       getAccounts: tool({
         description: "Get all the user's accounts with current balances and currencies",
-        parameters: z.object({}),
+        inputSchema: z.object({}),
         execute: async () => {
           const rows = await db
             .select()
@@ -51,7 +52,7 @@ Keep responses under 200 words unless the user asks for more detail.`,
       getTransactions: tool({
         description:
           "Get transactions filtered by type, date range, or search term",
-        parameters: z.object({
+        inputSchema: z.object({
           limit: z
             .number()
             .min(1)
@@ -110,7 +111,7 @@ Keep responses under 200 words unless the user asks for more detail.`,
 
       getSpendingSummary: tool({
         description: "Get total income and expenses for a specific month",
-        parameters: z.object({
+        inputSchema: z.object({
           month: z.number().min(1).max(12).describe("Month number 1–12"),
           year: z.number().describe("Year, e.g. 2026"),
         }),
@@ -161,7 +162,7 @@ Keep responses under 200 words unless the user asks for more detail.`,
       getBudgetStatus: tool({
         description:
           "Get the user's budgets and how much has been spent against each",
-        parameters: z.object({
+        inputSchema: z.object({
           month: z.number().min(1).max(12).describe("Month number 1–12"),
           year: z.number().describe("Year, e.g. 2026"),
         }),
@@ -208,7 +209,7 @@ Keep responses under 200 words unless the user asks for more detail.`,
 
       getCategoryBreakdown: tool({
         description: "Get expense spending broken down by category for a date range",
-        parameters: z.object({
+        inputSchema: z.object({
           fromDate: z.string().describe("Start date ISO format e.g. 2026-03-01"),
           toDate: z.string().describe("End date ISO format e.g. 2026-03-31"),
         }),
@@ -249,5 +250,5 @@ Keep responses under 200 words unless the user asks for more detail.`,
     },
   });
 
-  return result.toDataStreamResponse();
+  return result.toUIMessageStreamResponse();
 }

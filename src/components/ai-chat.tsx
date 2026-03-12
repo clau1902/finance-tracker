@@ -1,7 +1,7 @@
 "use client";
 
-import { useChat } from "ai/react";
-import { useState, useRef, useEffect } from "react";
+import { useChat } from "@ai-sdk/react";
+import { useState, useRef, useEffect, FormEvent } from "react";
 import { MessageCircle, X, Send, Bot, User, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,25 +14,35 @@ const STARTERS = [
   "What's my biggest expense category?",
 ];
 
+function getMessageText(parts: { type: string; text?: string }[]): string {
+  return parts
+    .filter((p) => p.type === "text")
+    .map((p) => p.text ?? "")
+    .join("");
+}
+
 export function AiChat() {
   const [open, setOpen] = useState(false);
+  const [input, setInput] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  const { messages, input, handleInputChange, handleSubmit, isLoading, setInput } =
-    useChat({ api: "/api/chat" });
+  const { messages, sendMessage, status } = useChat();
+  const isLoading = status === "streaming" || status === "submitted";
 
-  // Scroll to bottom on new messages
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  function sendStarter(text: string) {
-    setInput(text);
-    // Submit programmatically after state update
-    setTimeout(() => {
-      const form = document.getElementById("ai-chat-form") as HTMLFormElement | null;
-      form?.requestSubmit();
-    }, 0);
+  function submit(text: string) {
+    const trimmed = text.trim();
+    if (!trimmed || isLoading) return;
+    setInput("");
+    sendMessage({ text: trimmed });
+  }
+
+  function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    submit(input);
   }
 
   const isEmpty = messages.length === 0;
@@ -83,7 +93,7 @@ export function AiChat() {
                   {STARTERS.map((s) => (
                     <button
                       key={s}
-                      onClick={() => sendStarter(s)}
+                      onClick={() => submit(s)}
                       className="text-xs text-left px-3 py-2 rounded-lg border border-border bg-muted/50 hover:bg-muted transition-colors"
                     >
                       {s}
@@ -92,43 +102,48 @@ export function AiChat() {
                 </div>
               </div>
             ) : (
-              messages.map((m) => (
-                <div
-                  key={m.id}
-                  className={cn(
-                    "flex gap-2 text-sm",
-                    m.role === "user" ? "flex-row-reverse" : "flex-row"
-                  )}
-                >
+              messages.map((m) => {
+                const text = getMessageText(
+                  m.parts as { type: string; text?: string }[]
+                );
+                if (!text && m.role !== "user") return null;
+                return (
                   <div
+                    key={m.id}
                     className={cn(
-                      "flex h-6 w-6 shrink-0 items-center justify-center rounded-full",
-                      m.role === "user"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-muted-foreground"
+                      "flex gap-2 text-sm",
+                      m.role === "user" ? "flex-row-reverse" : "flex-row"
                     )}
                   >
-                    {m.role === "user" ? (
-                      <User className="h-3 w-3" />
-                    ) : (
-                      <Bot className="h-3 w-3" />
-                    )}
+                    <div
+                      className={cn(
+                        "flex h-6 w-6 shrink-0 items-center justify-center rounded-full",
+                        m.role === "user"
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted text-muted-foreground"
+                      )}
+                    >
+                      {m.role === "user" ? (
+                        <User className="h-3 w-3" />
+                      ) : (
+                        <Bot className="h-3 w-3" />
+                      )}
+                    </div>
+                    <div
+                      className={cn(
+                        "max-w-[82%] rounded-xl px-3 py-2 leading-relaxed whitespace-pre-wrap",
+                        m.role === "user"
+                          ? "bg-primary text-primary-foreground rounded-tr-sm"
+                          : "bg-muted text-foreground rounded-tl-sm"
+                      )}
+                    >
+                      {text || (
+                        <span className="text-muted-foreground text-xs italic">Thinking…</span>
+                      )}
+                    </div>
                   </div>
-                  <div
-                    className={cn(
-                      "max-w-[82%] rounded-xl px-3 py-2 leading-relaxed whitespace-pre-wrap",
-                      m.role === "user"
-                        ? "bg-primary text-primary-foreground rounded-tr-sm"
-                        : "bg-muted text-foreground rounded-tl-sm"
-                    )}
-                  >
-                    {m.content || (
-                      // Tool-call step in progress
-                      <span className="text-muted-foreground text-xs italic">Thinking…</span>
-                    )}
-                  </div>
-                </div>
-              ))
+                );
+              })
             )}
 
             {/* Loading dots */}
@@ -150,13 +165,12 @@ export function AiChat() {
 
           {/* Input */}
           <form
-            id="ai-chat-form"
             onSubmit={handleSubmit}
             className="flex gap-2 p-3 border-t border-border bg-muted/20"
           >
             <Input
               value={input}
-              onChange={handleInputChange}
+              onChange={(e) => setInput(e.target.value)}
               placeholder="Ask about your finances…"
               disabled={isLoading}
               className="h-9 text-sm"
