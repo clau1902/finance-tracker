@@ -175,16 +175,46 @@ export function DashboardContent() {
   const c = data.displayCurrency;
   const isDisplayCurrencySet = !!displayCurrency;
 
-  // Render a map of per-currency values as stacked lines
-  function CurrencyValues({
+  /**
+   * Renders a card value section.
+   * - Display currency set + converted value available → show converted value large,
+   *   native per-currency amounts small below as reference.
+   * - Otherwise → show native amounts stacked (primary large, others small).
+   */
+  function CardValue({
     map,
+    converted,
     colorFn,
   }: {
     map: Record<string, number>;
+    converted: number | null;
     colorFn?: (v: number) => string;
   }) {
     const entries = Object.entries(map).filter(([, v]) => v !== 0);
-    if (entries.length === 0) return <span className="text-2xl font-semibold text-foreground">{formatCurrency(0, c)}</span>;
+
+    if (isDisplayCurrencySet && converted !== null) {
+      const color = colorFn ? colorFn(converted) : "text-foreground";
+      return (
+        <div>
+          <p className={`text-2xl font-semibold tabular-nums ${color}`}>
+            ≈ {formatCurrency(converted, c)}
+          </p>
+          {entries.length > 0 && (
+            <div className="flex flex-wrap gap-x-2 mt-1">
+              {entries.map(([cur, val]) => (
+                <span key={cur} className="text-xs text-muted-foreground tabular-nums">
+                  {formatCurrency(val, cur)}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    if (entries.length === 0)
+      return <span className="text-2xl font-semibold text-foreground">{formatCurrency(0, c)}</span>;
+
     return (
       <div className="space-y-0.5">
         {entries.map(([cur, val], i) => (
@@ -200,10 +230,6 @@ export function DashboardContent() {
       </div>
     );
   }
-
-  // Show converted totals when there are multiple currencies OR a display currency is explicitly chosen
-  const isMultiCurrency =
-    Object.keys(data.balanceByCurrency).length > 1 || isDisplayCurrencySet;
 
   // Trend % — use converted totals when a display currency is active, otherwise primary currency
   const thisIncome = data.convertedMonthIncome ?? data.monthIncomeByCurrency[c] ?? 0;
@@ -250,18 +276,13 @@ export function DashboardContent() {
         <Card className="border-border/60 shadow-sm">
           <CardContent className="p-5">
             <div className="flex items-start justify-between">
-              <div>
+              <div className="flex-1 min-w-0">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Balance</p>
                 <div className="mt-1">
-                  <CurrencyValues map={data.balanceByCurrency} />
+                  <CardValue map={data.balanceByCurrency} converted={data.convertedTotalBalance} />
                 </div>
-                {isMultiCurrency && data.convertedTotalBalance !== null && (
-                  <p className="text-xs mt-1 text-muted-foreground">
-                    ≈ {formatCurrency(data.convertedTotalBalance, c)}
-                  </p>
-                )}
               </div>
-              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
                 <Wallet className="w-5 h-5 text-primary" />
               </div>
             </div>
@@ -272,21 +293,18 @@ export function DashboardContent() {
         <Card className="border-border/60 shadow-sm">
           <CardContent className="p-5">
             <div className="flex items-start justify-between">
-              <div>
+              <div className="flex-1 min-w-0">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Monthly Income</p>
                 <div className="mt-1">
-                  <CurrencyValues map={data.monthIncomeByCurrency} />
+                  <CardValue map={data.monthIncomeByCurrency} converted={data.convertedMonthIncome} />
                 </div>
-                {isMultiCurrency && data.convertedMonthIncome !== null && (
-                  <p className="text-xs mt-0.5 text-muted-foreground">≈ {formatCurrency(data.convertedMonthIncome, c)}</p>
-                )}
                 {incomePct !== null && (
                   <p className={`text-xs mt-1 font-medium ${incomePct >= 0 ? "text-emerald-600" : "text-rose-500"}`}>
                     {incomePct >= 0 ? "+" : ""}{incomePct.toFixed(1)}% vs last month
                   </p>
                 )}
               </div>
-              <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
                 <TrendingUp className="w-5 h-5 text-emerald-600" />
               </div>
             </div>
@@ -297,21 +315,18 @@ export function DashboardContent() {
         <Card className="border-border/60 shadow-sm">
           <CardContent className="p-5">
             <div className="flex items-start justify-between">
-              <div>
+              <div className="flex-1 min-w-0">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Monthly Expenses</p>
                 <div className="mt-1">
-                  <CurrencyValues map={data.monthExpenseByCurrency} />
+                  <CardValue map={data.monthExpenseByCurrency} converted={data.convertedMonthExpense} />
                 </div>
-                {isMultiCurrency && data.convertedMonthExpense !== null && (
-                  <p className="text-xs mt-0.5 text-muted-foreground">≈ {formatCurrency(data.convertedMonthExpense, c)}</p>
-                )}
                 {expensePct !== null && (
                   <p className={`text-xs mt-1 font-medium ${expensePct <= 0 ? "text-emerald-600" : "text-rose-500"}`}>
                     {expensePct >= 0 ? "+" : ""}{expensePct.toFixed(1)}% vs last month
                   </p>
                 )}
               </div>
-              <div className="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center flex-shrink-0">
                 <TrendingDown className="w-5 h-5 text-rose-500" />
               </div>
             </div>
@@ -322,24 +337,22 @@ export function DashboardContent() {
         <Card className="border-border/60 shadow-sm">
           <CardContent className="p-5">
             <div className="flex items-start justify-between">
-              <div>
+              <div className="flex-1 min-w-0">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Net Savings</p>
                 <div className="mt-1">
-                  <CurrencyValues
+                  <CardValue
                     map={data.monthlySavingsByCurrency}
+                    converted={data.convertedMonthlySavings}
                     colorFn={(v) => v >= 0 ? "text-foreground" : "text-rose-500"}
                   />
                 </div>
-                {isMultiCurrency && data.convertedMonthlySavings !== null && (
-                  <p className="text-xs mt-0.5 text-muted-foreground">≈ {formatCurrency(data.convertedMonthlySavings, c)}</p>
-                )}
                 {savingsRate !== null && (
                   <p className={`text-xs mt-1 font-medium ${savingsRate >= 20 ? "text-emerald-600" : savingsRate >= 0 ? "text-amber-600" : "text-rose-500"}`}>
                     {savingsRate}% savings rate
                   </p>
                 )}
               </div>
-              <div className={`w-10 h-10 rounded-xl ${primarySavings >= 0 ? "bg-teal-100" : "bg-rose-100"} flex items-center justify-center`}>
+              <div className={`w-10 h-10 rounded-xl ${primarySavings >= 0 ? "bg-teal-100" : "bg-rose-100"} flex items-center justify-center flex-shrink-0`}>
                 <PiggyBank className={`w-5 h-5 ${primarySavings >= 0 ? "text-teal-600" : "text-rose-500"}`} />
               </div>
             </div>
