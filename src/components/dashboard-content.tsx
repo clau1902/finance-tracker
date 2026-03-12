@@ -31,10 +31,13 @@ import { TransactionRow } from "@/components/transaction-row";
 import { AddTransactionDialog } from "@/components/add-transaction-dialog";
 import { OnboardingChecklist } from "@/components/onboarding-checklist";
 import { ConnectBankButton } from "@/components/connect-bank-button";
+import { CurrencySelector } from "@/components/currency-selector";
+import { useDisplayCurrency } from "@/hooks/useDisplayCurrency";
 import { formatCurrency } from "@/lib/format";
 
 interface DashboardData {
   primaryCurrency: string;
+  displayCurrency: string;
   balanceByCurrency: Record<string, number>;
   monthIncomeByCurrency: Record<string, number>;
   monthExpenseByCurrency: Record<string, number>;
@@ -132,10 +135,14 @@ export function DashboardContent() {
   const [txDialogOpen, setTxDialogOpen] = useState(false);
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { displayCurrency, setDisplayCurrency } = useDisplayCurrency();
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await fetch("/api/dashboard");
+      const url = displayCurrency
+        ? `/api/dashboard?displayCurrency=${displayCurrency}`
+        : "/api/dashboard";
+      const res = await fetch(url);
       const json = await res.json();
       setData(json);
     } catch (err) {
@@ -143,7 +150,7 @@ export function DashboardContent() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [displayCurrency]);
 
   useEffect(() => {
     fetchData();
@@ -164,7 +171,9 @@ export function DashboardContent() {
   if (loading) return <DashboardSkeleton />;
   if (!data) return null;
 
-  const c = data.primaryCurrency;
+  // c = the currency used for converted totals and chart labels
+  const c = data.displayCurrency;
+  const isDisplayCurrencySet = !!displayCurrency;
 
   // Render a map of per-currency values as stacked lines
   function CurrencyValues({
@@ -192,13 +201,19 @@ export function DashboardContent() {
     );
   }
 
-  const isMultiCurrency = Object.keys(data.balanceByCurrency).length > 1;
+  // Show converted totals when there are multiple currencies OR a display currency is explicitly chosen
+  const isMultiCurrency =
+    Object.keys(data.balanceByCurrency).length > 1 || isDisplayCurrencySet;
 
-  // Per-currency trend % (primary currency only, for simplicity)
-  const incomePct = trendPct(data.monthIncomeByCurrency[c] ?? 0, data.lastMonthIncomeByCurrency[c] ?? 0);
-  const expensePct = trendPct(data.monthExpenseByCurrency[c] ?? 0, data.lastMonthExpenseByCurrency[c] ?? 0);
-  const primarySavings = data.monthlySavingsByCurrency[c] ?? 0;
-  const primaryIncome = data.monthIncomeByCurrency[c] ?? 0;
+  // Trend % — use converted totals when a display currency is active, otherwise primary currency
+  const thisIncome = data.convertedMonthIncome ?? data.monthIncomeByCurrency[c] ?? 0;
+  const lastIncome = data.lastMonthIncomeByCurrency[c] ?? 0;
+  const thisExpense = data.convertedMonthExpense ?? data.monthExpenseByCurrency[c] ?? 0;
+  const lastExpense = data.lastMonthExpenseByCurrency[c] ?? 0;
+  const incomePct = trendPct(thisIncome, lastIncome);
+  const expensePct = trendPct(thisExpense, lastExpense);
+  const primarySavings = data.convertedMonthlySavings ?? data.monthlySavingsByCurrency[c] ?? 0;
+  const primaryIncome = thisIncome;
   const savingsRate = primaryIncome > 0 ? Math.round((primarySavings / primaryIncome) * 100) : null;
 
   return (
@@ -211,11 +226,14 @@ export function DashboardContent() {
             {new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })}
           </p>
         </div>
-        <AddTransactionDialog
-          onSuccess={fetchData}
-          open={txDialogOpen}
-          onOpenChange={setTxDialogOpen}
-        />
+        <div className="flex items-center gap-2">
+          <CurrencySelector value={displayCurrency} onChange={setDisplayCurrency} />
+          <AddTransactionDialog
+            onSuccess={fetchData}
+            open={txDialogOpen}
+            onOpenChange={setTxDialogOpen}
+          />
+        </div>
       </div>
 
       {/* Onboarding Checklist */}
@@ -239,7 +257,7 @@ export function DashboardContent() {
                 </div>
                 {isMultiCurrency && data.convertedTotalBalance !== null && (
                   <p className="text-xs mt-1 text-muted-foreground">
-                    ≈ {formatCurrency(data.convertedTotalBalance, c)} total
+                    ≈ {formatCurrency(data.convertedTotalBalance, c)}
                   </p>
                 )}
               </div>
@@ -260,7 +278,7 @@ export function DashboardContent() {
                   <CurrencyValues map={data.monthIncomeByCurrency} />
                 </div>
                 {isMultiCurrency && data.convertedMonthIncome !== null && (
-                  <p className="text-xs mt-0.5 text-muted-foreground">≈ {formatCurrency(data.convertedMonthIncome, c)} total</p>
+                  <p className="text-xs mt-0.5 text-muted-foreground">≈ {formatCurrency(data.convertedMonthIncome, c)}</p>
                 )}
                 {incomePct !== null && (
                   <p className={`text-xs mt-1 font-medium ${incomePct >= 0 ? "text-emerald-600" : "text-rose-500"}`}>
@@ -285,7 +303,7 @@ export function DashboardContent() {
                   <CurrencyValues map={data.monthExpenseByCurrency} />
                 </div>
                 {isMultiCurrency && data.convertedMonthExpense !== null && (
-                  <p className="text-xs mt-0.5 text-muted-foreground">≈ {formatCurrency(data.convertedMonthExpense, c)} total</p>
+                  <p className="text-xs mt-0.5 text-muted-foreground">≈ {formatCurrency(data.convertedMonthExpense, c)}</p>
                 )}
                 {expensePct !== null && (
                   <p className={`text-xs mt-1 font-medium ${expensePct <= 0 ? "text-emerald-600" : "text-rose-500"}`}>
@@ -313,7 +331,7 @@ export function DashboardContent() {
                   />
                 </div>
                 {isMultiCurrency && data.convertedMonthlySavings !== null && (
-                  <p className="text-xs mt-0.5 text-muted-foreground">≈ {formatCurrency(data.convertedMonthlySavings, c)} total</p>
+                  <p className="text-xs mt-0.5 text-muted-foreground">≈ {formatCurrency(data.convertedMonthlySavings, c)}</p>
                 )}
                 {savingsRate !== null && (
                   <p className={`text-xs mt-1 font-medium ${savingsRate >= 20 ? "text-emerald-600" : savingsRate >= 0 ? "text-amber-600" : "text-rose-500"}`}>

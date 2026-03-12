@@ -92,19 +92,25 @@ export async function GET(req: NextRequest) {
     const primaryCurrency =
       Object.entries(currencyCount).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "USD";
 
-    // FX conversion — only fetch rates when there are multiple currencies
+    // FX conversion — use displayCurrency from query param, or fall back to primaryCurrency
+    const displayCurrency =
+      req.nextUrl.searchParams.get("displayCurrency") ?? primaryCurrency;
+
     let fxRates: Record<string, number> = {};
     let convertedTotalBalance: number | null = null;
     let convertedMonthIncome: number | null = null;
     let convertedMonthExpense: number | null = null;
     let convertedMonthlySavings: number | null = null;
 
-    if (allCurrencies.length > 1) {
-      fxRates = await getExchangeRates(primaryCurrency);
-      convertedTotalBalance = sumConverted(balanceByCurrency, primaryCurrency, fxRates);
-      convertedMonthIncome = sumConverted(monthIncomeByCurrency, primaryCurrency, fxRates);
-      convertedMonthExpense = sumConverted(monthExpenseByCurrency, primaryCurrency, fxRates);
-      convertedMonthlySavings = sumConverted(monthlySavingsByCurrency, primaryCurrency, fxRates);
+    const needsConversion =
+      allCurrencies.length > 1 || displayCurrency !== primaryCurrency;
+
+    if (needsConversion) {
+      fxRates = await getExchangeRates(displayCurrency);
+      convertedTotalBalance = sumConverted(balanceByCurrency, displayCurrency, fxRates);
+      convertedMonthIncome = sumConverted(monthIncomeByCurrency, displayCurrency, fxRates);
+      convertedMonthExpense = sumConverted(monthExpenseByCurrency, displayCurrency, fxRates);
+      convertedMonthlySavings = sumConverted(monthlySavingsByCurrency, displayCurrency, fxRates);
     }
 
     const recentTransactions = await db.query.transactions.findMany({
@@ -204,6 +210,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       primaryCurrency,
+      displayCurrency,
       balanceByCurrency,
       monthIncomeByCurrency,
       monthExpenseByCurrency,
