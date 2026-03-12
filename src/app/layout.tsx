@@ -5,6 +5,7 @@ import { Sidebar } from "@/components/sidebar";
 import { SessionProvider } from "@/components/session-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "next-themes";
+import { AiChat } from "@/components/ai-chat";
 import { auth } from "@/auth";
 
 const geistSans = Geist({
@@ -45,6 +46,7 @@ export default async function RootLayout({
               {children}
             </main>
           </div>
+          {session && <AiChat />}
           <Toaster
             richColors
             position="top-center"
