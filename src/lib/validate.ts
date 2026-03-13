@@ -3,7 +3,7 @@ import { z } from "zod";
 export const transactionSchema = z.object({
   description: z.string().min(1).max(200),
   amount: z.number().positive().max(999_999_999),
-  type: z.enum(["income", "expense"]),
+  type: z.enum(["income", "expense", "transfer"]),
   accountId: z.number().int().positive(),
   categoryId: z.number().int().positive().nullable().optional(),
   date: z.string().min(1),
@@ -13,7 +13,7 @@ export const transactionSchema = z.object({
 export const transactionPatchSchema = z.object({
   description: z.string().min(1).max(200).optional(),
   amount: z.number().positive().max(999_999_999).optional(),
-  type: z.enum(["income", "expense"]).optional(),
+  type: z.enum(["income", "expense", "transfer"]).optional(),
   accountId: z.number().int().positive().optional(),
   categoryId: z.number().int().positive().nullable().optional(),
   date: z.string().min(1).optional(),

@@ -42,7 +42,7 @@ interface Transaction {
   id: number;
   description: string;
   amount: string;
-  type: "income" | "expense";
+  type: "income" | "expense" | "transfer";
   date: string;
   notes?: string | null;
   categoryId?: number | null;
@@ -252,8 +252,9 @@ export function TransactionsContent() {
 
   const filtered = transactions;
 
-  // Group totals by currency
+  // Group totals by currency — exclude transfers
   const currencyTotals = filtered.reduce<Record<string, { income: number; expense: number }>>((acc, tx) => {
+    if (tx.type === "transfer") return acc;
     const cur = tx.account?.currency ?? "USD";
     if (!acc[cur]) acc[cur] = { income: 0, expense: 0 };
     if (tx.type === "income") acc[cur].income += parseFloat(tx.amount);
@@ -276,7 +277,7 @@ export function TransactionsContent() {
   const accountBreakdown = accounts
     .filter((a) => filtered.some((tx) => tx.accountId === a.id))
     .map((a) => {
-      const txs = filtered.filter((tx) => tx.accountId === a.id);
+      const txs = filtered.filter((tx) => tx.accountId === a.id && tx.type !== "transfer");
       const income = txs.filter((tx) => tx.type === "income").reduce((s, tx) => s + parseFloat(tx.amount), 0);
       const expense = txs.filter((tx) => tx.type === "expense").reduce((s, tx) => s + parseFloat(tx.amount), 0);
       const currency = txs[0]?.account?.currency ?? "USD";
@@ -442,6 +443,7 @@ export function TransactionsContent() {
             <SelectItem value="all">All types</SelectItem>
             <SelectItem value="income">Income</SelectItem>
             <SelectItem value="expense">Expense</SelectItem>
+            <SelectItem value="transfer">Transfer</SelectItem>
           </SelectContent>
         </Select>
         <Select value={categoryFilter} onValueChange={setCategoryFilter}>
@@ -557,6 +559,7 @@ export function TransactionsContent() {
                     {group.items.map((tx) => {
                       const amount = parseFloat(tx.amount);
                       const isIncome = tx.type === "income";
+                      const isTransfer = tx.type === "transfer";
                       return (
                         <div
                           key={tx.id}
@@ -643,10 +646,14 @@ export function TransactionsContent() {
                           <div className="flex items-center gap-1">
                             <span
                               className={`text-sm font-semibold tabular-nums ${
-                                isIncome ? "text-emerald-600" : "text-rose-500"
+                                isTransfer
+                                  ? "text-muted-foreground"
+                                  : isIncome
+                                  ? "text-emerald-600"
+                                  : "text-rose-500"
                               }`}
                             >
-                              {isIncome ? "+" : "-"}
+                              {isTransfer ? "⇄ " : isIncome ? "+" : "-"}
                               {formatCurrency(amount, tx.account?.currency ?? "USD")}
                             </span>
                             <Button

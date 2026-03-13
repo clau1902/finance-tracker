@@ -38,7 +38,7 @@ interface Transaction {
   id: number;
   description: string;
   amount: string;
-  type: "income" | "expense";
+  type: "income" | "expense" | "transfer";
   date: string;
   notes?: string | null;
   categoryId?: number | null;
@@ -73,7 +73,7 @@ export function AddTransactionDialog({
   const defaultForm = {
     description: "",
     amount: "",
-    type: "expense" as "income" | "expense",
+    type: "expense" as "income" | "expense" | "transfer",
     categoryId: "",
     accountId: "",
     date: new Date().toISOString().split("T")[0],
@@ -107,7 +107,7 @@ export function AddTransactionDialog({
     }
   }, [open]);
 
-  const filteredCategories = categories.filter((c) => c.type === form.type);
+  const filteredCategories = categories.filter((c) => c.type === form.type || form.type === "transfer");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -201,6 +201,17 @@ export function AddTransactionDialog({
               onClick={() => setForm({ ...form, type: "income", categoryId: "" })}
             >
               Income
+            </button>
+            <button
+              type="button"
+              className={`flex-1 py-2 text-sm font-medium transition-colors ${
+                form.type === "transfer"
+                  ? "bg-primary text-white"
+                  : "text-muted-foreground hover:bg-secondary"
+              }`}
+              onClick={() => setForm({ ...form, type: "transfer", categoryId: "" })}
+            >
+              Transfer
             </button>
           </div>
 

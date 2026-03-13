@@ -73,14 +73,16 @@ export async function POST(req: NextRequest) {
         .limit(1);
       if (existingTx.length > 0) continue;
 
+      const desc = (tlTx.merchant_name || tlTx.description).toLowerCase();
+      const isTransfer = /\b(transfer|tfr|trf|mov(ement)?|between accounts?|own account|internal)\b/.test(desc);
       const isCredit = tlTx.transaction_type === "CREDIT";
       await db.insert(transactions).values({
         userId: userId!,
         accountId,
         description: tlTx.merchant_name || tlTx.description,
         amount: String(Math.abs(tlTx.amount)),
-        type: isCredit ? "income" : "expense",
-        categoryId: uncategorizedId,
+        type: isTransfer ? "transfer" : isCredit ? "income" : "expense",
+        categoryId: isTransfer ? null : uncategorizedId,
         date: new Date(tlTx.timestamp),
         externalId: tlTx.transaction_id,
       });

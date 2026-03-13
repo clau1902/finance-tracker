@@ -108,11 +108,13 @@ export async function POST(req: NextRequest) {
       })
       .returning();
 
-    const balanceDelta = type === "income" ? amount : -amount;
-    await db
-      .update(accounts)
-      .set({ balance: sql`balance + ${balanceDelta}` })
-      .where(eq(accounts.id, accountId));
+    if (type !== "transfer") {
+      const balanceDelta = type === "income" ? amount : -amount;
+      await db
+        .update(accounts)
+        .set({ balance: sql`balance + ${balanceDelta}` })
+        .where(eq(accounts.id, accountId));
+    }
 
     return NextResponse.json(transaction, { status: 201 });
   } catch (err) {

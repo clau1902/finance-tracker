@@ -34,12 +34,14 @@ export async function DELETE(
 
     await db.delete(transactions).where(eq(transactions.id, txId));
 
-    const balanceDelta =
-      tx.type === "income" ? -parseFloat(String(tx.amount)) : parseFloat(String(tx.amount));
-    await db
-      .update(accounts)
-      .set({ balance: sql`balance + ${balanceDelta}` })
-      .where(eq(accounts.id, tx.accountId));
+    if (tx.type !== "transfer") {
+      const balanceDelta =
+        tx.type === "income" ? -parseFloat(String(tx.amount)) : parseFloat(String(tx.amount));
+      await db
+        .update(accounts)
+        .set({ balance: sql`balance + ${balanceDelta}` })
+        .where(eq(accounts.id, tx.accountId));
+    }
 
     return NextResponse.json({ success: true });
   } catch (err) {
@@ -76,15 +78,17 @@ export async function PATCH(
       );
     }
 
-    // Reverse old balance effect
-    const oldDelta =
-      existing.type === "income"
-        ? -parseFloat(String(existing.amount))
-        : parseFloat(String(existing.amount));
-    await db
-      .update(accounts)
-      .set({ balance: sql`balance + ${oldDelta}` })
-      .where(eq(accounts.id, existing.accountId));
+    // Reverse old balance effect (transfers have no balance effect)
+    if (existing.type !== "transfer") {
+      const oldDelta =
+        existing.type === "income"
+          ? -parseFloat(String(existing.amount))
+          : parseFloat(String(existing.amount));
+      await db
+        .update(accounts)
+        .set({ balance: sql`balance + ${oldDelta}` })
+        .where(eq(accounts.id, existing.accountId));
+    }
 
     const data = result.data;
 
@@ -124,14 +128,16 @@ export async function PATCH(
       .where(eq(transactions.id, txId))
       .returning();
 
-    const newDelta =
-      updated.type === "income"
-        ? parseFloat(String(updated.amount))
-        : -parseFloat(String(updated.amount));
-    await db
-      .update(accounts)
-      .set({ balance: sql`balance + ${newDelta}` })
-      .where(eq(accounts.id, updated.accountId));
+    if (updated.type !== "transfer") {
+      const newDelta =
+        updated.type === "income"
+          ? parseFloat(String(updated.amount))
+          : -parseFloat(String(updated.amount));
+      await db
+        .update(accounts)
+        .set({ balance: sql`balance + ${newDelta}` })
+        .where(eq(accounts.id, updated.accountId));
+    }
 
     return NextResponse.json(updated);
   } catch (err) {
