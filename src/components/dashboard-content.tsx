@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useAutoRefresh } from "@/hooks/use-auto-refresh";
 import { useSearchParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -155,6 +156,8 @@ export function DashboardContent() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  useAutoRefresh(fetchData, 30_000);
 
   // Handle Yapily callback query params
   useEffect(() => {

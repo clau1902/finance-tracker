@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import { useAutoRefresh } from "@/hooks/use-auto-refresh";
 import { Plus, CreditCard, Landmark, Wallet, TrendingUp, ArrowRight, Pencil, Trash2, RefreshCw, Archive, RotateCcw, ChevronDown, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
@@ -90,7 +91,7 @@ export function AccountsContent() {
   const [retiring, setRetiring] = useState(false);
   const [showRetired, setShowRetired] = useState(false);
 
-  const fetchAccounts = async () => {
+  const fetchAccounts = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch("/api/accounts");
@@ -98,11 +99,13 @@ export function AccountsContent() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchAccounts();
-  }, []);
+  }, [fetchAccounts]);
+
+  useAutoRefresh(fetchAccounts, 30_000);
 
   const activeAccounts = accounts.filter((a) => !a.retired);
   const retiredAccounts = accounts.filter((a) => a.retired);

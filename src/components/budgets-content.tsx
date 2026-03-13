@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import { useAutoRefresh } from "@/hooks/use-auto-refresh";
 import { Plus, AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Trash2, CalendarClock } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
@@ -69,7 +70,7 @@ export function BudgetsContent() {
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
 
-  const fetchBudgets = async (month = viewMonth, year = viewYear) => {
+  const fetchBudgets = useCallback(async (month = viewMonth, year = viewYear) => {
     setLoading(true);
     try {
       const res = await fetch(`/api/budgets?month=${month}&year=${year}`);
@@ -78,7 +79,7 @@ export function BudgetsContent() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [viewMonth, viewYear]);
 
   useEffect(() => {
     fetchBudgets(viewMonth, viewYear);
@@ -89,6 +90,8 @@ export function BudgetsContent() {
       );
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewMonth, viewYear]);
+
+  useAutoRefresh(fetchBudgets, 30_000);
 
   const navigateMonth = (delta: number) => {
     let m = viewMonth + delta;

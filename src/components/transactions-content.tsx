@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useAutoRefresh } from "@/hooks/use-auto-refresh";
 import { useSearchParams } from "next/navigation";
 import { Search, Trash2, Pencil, X, FilterX, Download, ChevronDown, CalendarRange, Zap } from "lucide-react";
 import { toast } from "sonner";
@@ -170,6 +171,8 @@ export function TransactionsContent() {
     fetch("/api/categories").then((r) => r.json()).then(setCategories);
     fetch("/api/accounts").then((r) => r.json()).then(setAccounts);
   }, [fetchTransactions]);
+
+  useAutoRefresh(fetchTransactions, 30_000);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
