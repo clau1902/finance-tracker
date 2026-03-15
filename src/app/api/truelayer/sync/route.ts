@@ -1,9 +1,63 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { accounts, transactions, categories } from "@/lib/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, or, isNotNull, inArray } from "drizzle-orm";
 import { requireAuth, validateOrigin } from "@/lib/api";
 import { getBalance, getTransactions } from "@/lib/truelayer";
+
+async function pairTransfers(userId: number): Promise<number> {
+  const candidates = await db
+    .select({
+      id: transactions.id,
+      amount: transactions.amount,
+      type: transactions.type,
+      date: transactions.date,
+      accountId: transactions.accountId,
+      currency: accounts.currency,
+    })
+    .from(transactions)
+    .innerJoin(accounts, eq(transactions.accountId, accounts.id))
+    .where(
+      and(
+        eq(transactions.userId, userId),
+        isNotNull(accounts.externalAccountId),
+        or(eq(transactions.type, "income"), eq(transactions.type, "expense"))
+      )
+    );
+
+  const toMark = new Set<number>();
+
+  for (const tx of candidates) {
+    if (toMark.has(tx.id) || tx.type !== "expense") continue;
+
+    const txDate = new Date(tx.date).getTime();
+    const txAmount = parseFloat(String(tx.amount));
+
+    const match = candidates.find(
+      (other) =>
+        !toMark.has(other.id) &&
+        other.type === "income" &&
+        other.accountId !== tx.accountId &&
+        other.currency === tx.currency &&
+        parseFloat(String(other.amount)) === txAmount &&
+        Math.abs(new Date(other.date).getTime() - txDate) <= 24 * 60 * 60 * 1000
+    );
+
+    if (match) {
+      toMark.add(tx.id);
+      toMark.add(match.id);
+    }
+  }
+
+  if (toMark.size > 0) {
+    await db
+      .update(transactions)
+      .set({ type: "transfer", categoryId: null })
+      .where(and(eq(transactions.userId, userId), inArray(transactions.id, [...toMark])));
+  }
+
+  return toMark.size / 2;
+}
 
 export async function POST(req: NextRequest) {
   if (!validateOrigin(req)) {
@@ -89,7 +143,10 @@ export async function POST(req: NextRequest) {
       newCount++;
     }
 
-    return NextResponse.json({ success: true, newTransactions: newCount, balance: balance.current });
+    // Detect and mark paired inter-account transfers
+    const transferPairs = await pairTransfers(userId!);
+
+    return NextResponse.json({ success: true, newTransactions: newCount, transferPairs, balance: balance.current });
   } catch (err) {
     console.error(err);
     return NextResponse.json({ error: "Sync failed" }, { status: 500 });
