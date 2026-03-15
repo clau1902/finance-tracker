@@ -19,6 +19,7 @@ export async function POST(req: NextRequest) {
   const { messages }: { messages: UIMessage[] } = await req.json();
   const now = new Date();
 
+  try {
   const modelMessages = await convertToModelMessages(messages);
 
   const result = streamText({
@@ -251,4 +252,11 @@ Keep responses under 200 words unless the user asks for more detail.`,
   });
 
   return result.toUIMessageStreamResponse();
+  } catch (err) {
+    console.error("[chat] Error:", err);
+    return new Response(JSON.stringify({ error: "Chat request failed" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 }

@@ -32,9 +32,14 @@ export async function DELETE(
     const tx = await getOwnedTransaction(txId, userId!);
     if (!tx) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+    const [acct] = await db
+      .select({ externalAccountId: accounts.externalAccountId })
+      .from(accounts)
+      .where(eq(accounts.id, tx.accountId));
+
     await db.delete(transactions).where(eq(transactions.id, txId));
 
-    if (tx.type !== "transfer") {
+    if (tx.type !== "transfer" && !acct?.externalAccountId) {
       const balanceDelta =
         tx.type === "income" ? -parseFloat(String(tx.amount)) : parseFloat(String(tx.amount));
       await db
@@ -78,8 +83,13 @@ export async function PATCH(
       );
     }
 
-    // Reverse old balance effect (transfers have no balance effect)
-    if (existing.type !== "transfer") {
+    const [oldAcct] = await db
+      .select({ externalAccountId: accounts.externalAccountId })
+      .from(accounts)
+      .where(eq(accounts.id, existing.accountId));
+
+    // Reverse old balance effect (transfers and TrueLayer accounts are unaffected)
+    if (existing.type !== "transfer" && !oldAcct?.externalAccountId) {
       const oldDelta =
         existing.type === "income"
           ? -parseFloat(String(existing.amount))
@@ -128,7 +138,15 @@ export async function PATCH(
       .where(eq(transactions.id, txId))
       .returning();
 
-    if (updated.type !== "transfer") {
+    const newAccountId = updated.accountId;
+    const [newAcct] = newAccountId === existing.accountId
+      ? [oldAcct]
+      : await db
+          .select({ externalAccountId: accounts.externalAccountId })
+          .from(accounts)
+          .where(eq(accounts.id, newAccountId));
+
+    if (updated.type !== "transfer" && !newAcct?.externalAccountId) {
       const newDelta =
         updated.type === "income"
           ? parseFloat(String(updated.amount))

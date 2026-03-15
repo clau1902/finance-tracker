@@ -26,7 +26,7 @@ export function AiChat() {
   const [input, setInput] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  const { messages, sendMessage, status } = useChat();
+  const { messages, sendMessage, status, error } = useChat();
   const isLoading = status === "streaming" || status === "submitted";
 
   useEffect(() => {
@@ -158,6 +158,12 @@ export function AiChat() {
                   <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground animate-bounce [animation-delay:300ms]" />
                 </div>
               </div>
+            )}
+
+            {error && (
+              <p className="text-xs text-destructive text-center py-1">
+                {error.message || "Something went wrong. Please try again."}
+              </p>
             )}
 
             <div ref={bottomRef} />

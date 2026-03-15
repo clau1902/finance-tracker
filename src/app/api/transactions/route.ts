@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
 
     const conditions = [eq(transactions.userId, userId!)];
     if (accountId) conditions.push(eq(transactions.accountId, parseInt(accountId)));
-    if (type === "income" || type === "expense") conditions.push(eq(transactions.type, type));
+    if (type === "income" || type === "expense" || type === "transfer") conditions.push(eq(transactions.type, type as "income" | "expense" | "transfer"));
     if (categoryId) conditions.push(eq(transactions.categoryId, parseInt(categoryId)));
     if (from) conditions.push(gte(transactions.date, new Date(from)));
     if (to) conditions.push(lte(transactions.date, new Date(to)));
@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
       })
       .returning();
 
-    if (type !== "transfer") {
+    if (type !== "transfer" && !account.externalAccountId) {
       const balanceDelta = type === "income" ? amount : -amount;
       await db
         .update(accounts)
