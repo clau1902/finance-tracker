@@ -9,3 +9,12 @@ npm-debug.log*
 .env*
 *.tsbuildinfo
 README.md
+# Config files not needed at runtime (compiled into the build)
+drizzle.config.ts
+eslint.config.mjs
+postcss.config.mjs
+vitest.config.ts
+# Docker files don't need to be in their own build context
+Dockerfile
+docker-compose.yml
+# Scripts are copied explicitly in the Dockerfile

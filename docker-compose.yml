@@ -1,7 +1,7 @@
 services:
   # Mailpit — local SMTP + web UI for testing emails
   mailpit:
-    image: axllent/mailpit:latest
+    image: axllent/mailpit:v1.21
     restart: unless-stopped
     ports:
       - "8025:8025"   # web UI
@@ -43,6 +43,12 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health 2>/dev/null || wget -qO- http://localhost:3000/ 2>/dev/null | grep -q html"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
 volumes:
   postgres_data:
