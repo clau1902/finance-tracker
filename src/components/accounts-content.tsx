@@ -430,56 +430,52 @@ export function AccountsContent() {
       {/* Net Worth Card */}
       <Card className="border-border/60 shadow-sm bg-gradient-to-br from-primary/5 to-primary/10">
         <CardContent className="p-5">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Net Worth
-              </p>
-              <p
-                className={`text-3xl font-bold mt-1 break-words ${
-                  totalNetWorth >= 0 ? "text-foreground" : "text-rose-500"
-                }`}
-              >
-                {multipleCurrencies ? (
-                  <span className="text-xl flex flex-wrap gap-x-1 gap-y-0.5">
-                    {Object.entries(netWorthByCurrency).map(([cur, { net }], i) => (
-                      <span key={cur} className="flex items-center gap-1">
-                        {i > 0 && <span className="text-muted-foreground">·</span>}
-                        <span className={net < 0 ? "text-rose-500" : ""}>{formatCurrency(net, cur)}</span>
-                      </span>
-                    ))}
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            Net Worth
+          </p>
+          <p
+            className={`text-3xl font-bold mt-1 break-words ${
+              totalNetWorth >= 0 ? "text-foreground" : "text-rose-500"
+            }`}
+          >
+            {multipleCurrencies ? (
+              <span className="text-xl flex flex-wrap gap-x-1 gap-y-0.5">
+                {Object.entries(netWorthByCurrency).map(([cur, { net }], i) => (
+                  <span key={cur} className="flex items-center gap-1">
+                    {i > 0 && <span className="text-muted-foreground">·</span>}
+                    <span className={net < 0 ? "text-rose-500" : ""}>{formatCurrency(net, cur)}</span>
                   </span>
-                ) : (
-                  formatCurrency(totalNetWorth, primaryCurrency)
-                )}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Across {activeAccounts.length} active account{activeAccounts.length !== 1 ? "s" : ""}
-              </p>
-            </div>
-            {activeAccounts.length > 0 && (
-              <div className="text-right space-y-1 shrink-0">
+                ))}
+              </span>
+            ) : (
+              formatCurrency(totalNetWorth, primaryCurrency)
+            )}
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Across {activeAccounts.length} active account{activeAccounts.length !== 1 ? "s" : ""}
+          </p>
+          {activeAccounts.length > 0 && (
+            <div className="flex items-center gap-5 mt-3 pt-3 border-t border-border/20">
+              <div>
+                <p className="text-xs text-muted-foreground">Assets</p>
+                <p className="text-sm font-semibold text-emerald-600">
+                  {multipleCurrencies
+                    ? Object.entries(netWorthByCurrency).filter(([, v]) => v.assets > 0).map(([cur, v]) => `+${formatCurrency(v.assets, cur)}`).join(" · ")
+                    : `+${formatCurrency(assets, primaryCurrency)}`}
+                </p>
+              </div>
+              {Object.values(netWorthByCurrency).some((v) => v.liabilities < 0) && (
                 <div>
-                  <p className="text-xs text-muted-foreground">Assets</p>
-                  <p className="text-sm font-semibold text-emerald-600">
+                  <p className="text-xs text-muted-foreground">Liabilities</p>
+                  <p className="text-sm font-semibold text-rose-500">
                     {multipleCurrencies
-                      ? Object.entries(netWorthByCurrency).filter(([, v]) => v.assets > 0).map(([cur, v]) => `+${formatCurrency(v.assets, cur)}`).join(" · ")
-                      : `+${formatCurrency(assets, primaryCurrency)}`}
+                      ? Object.entries(netWorthByCurrency).filter(([, v]) => v.liabilities < 0).map(([cur, v]) => formatCurrency(v.liabilities, cur)).join(" · ")
+                      : formatCurrency(liabilities, primaryCurrency)}
                   </p>
                 </div>
-                {Object.values(netWorthByCurrency).some((v) => v.liabilities < 0) && (
-                  <div>
-                    <p className="text-xs text-muted-foreground">Liabilities</p>
-                    <p className="text-sm font-semibold text-rose-500">
-                      {multipleCurrencies
-                        ? Object.entries(netWorthByCurrency).filter(([, v]) => v.liabilities < 0).map(([cur, v]) => formatCurrency(v.liabilities, cur)).join(" · ")
-                        : formatCurrency(liabilities, primaryCurrency)}
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
