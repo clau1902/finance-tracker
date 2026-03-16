@@ -381,9 +381,9 @@ export function TransactionsContent() {
           </div>
           <div className="flex items-center gap-3 px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide bg-secondary/20 border-b border-border/40">
             <span className="flex-1">Account</span>
-            <span className="w-28 text-right">Income</span>
-            <span className="w-28 text-right">Expenses</span>
-            <span className="w-28 text-right">Net</span>
+            <span className="hidden sm:block w-28 text-right">Income</span>
+            <span className="hidden sm:block w-28 text-right">Expenses</span>
+            <span className="w-24 text-right">Net</span>
           </div>
           <div className="divide-y divide-border/40">
             {accountBreakdown.map(({ account, income, expense, net, currency }) => (
@@ -391,20 +391,20 @@ export function TransactionsContent() {
                 <div className="flex items-center gap-1.5 flex-1 min-w-0">
                   <span className="font-medium truncate">{account.name}</span>
                   {account.externalAccountId && (
-                    <span className="flex items-center gap-0.5 text-xs font-medium px-1.5 py-0.5 rounded-full bg-primary/10 text-primary flex-shrink-0">
+                    <span className="hidden xs:flex items-center gap-0.5 text-xs font-medium px-1.5 py-0.5 rounded-full bg-primary/10 text-primary flex-shrink-0">
                       <Zap className="w-2.5 h-2.5" />
                       TrueLayer
                     </span>
                   )}
                 </div>
-                <span className="text-emerald-600 tabular-nums w-28 text-right">
+                <span className="hidden sm:block text-emerald-600 tabular-nums w-28 text-right">
                   +{formatCurrency(income, currency)}
                 </span>
-                <span className="text-rose-500 tabular-nums w-28 text-right">
+                <span className="hidden sm:block text-rose-500 tabular-nums w-28 text-right">
                   -{formatCurrency(expense, currency)}
                 </span>
                 <span
-                  className={`tabular-nums w-28 text-right font-semibold ${
+                  className={`tabular-nums w-24 text-right font-semibold ${
                     net >= 0 ? "text-emerald-600" : "text-rose-500"
                   }`}
                 >
