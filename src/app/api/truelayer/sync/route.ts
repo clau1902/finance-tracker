@@ -6,6 +6,19 @@ import { requireAuth, validateOrigin } from "@/lib/api";
 import { getBalance, getTransactions } from "@/lib/truelayer";
 
 async function pairTransfers(userId: number): Promise<number> {
+  // Get all TrueLayer-linked accounts for this user
+  const linkedAccounts = await db
+    .select({ id: accounts.id, currency: accounts.currency })
+    .from(accounts)
+    .where(and(eq(accounts.userId, userId), isNotNull(accounts.externalAccountId)));
+
+  if (linkedAccounts.length < 2) return 0;
+
+  const accountIds = linkedAccounts.map((a) => a.id);
+  const currencyByAccountId: Record<number, string> = Object.fromEntries(
+    linkedAccounts.map((a) => [a.id, a.currency])
+  );
+
   const candidates = await db
     .select({
       id: transactions.id,
@@ -13,14 +26,12 @@ async function pairTransfers(userId: number): Promise<number> {
       type: transactions.type,
       date: transactions.date,
       accountId: transactions.accountId,
-      currency: accounts.currency,
     })
     .from(transactions)
-    .innerJoin(accounts, eq(transactions.accountId, accounts.id))
     .where(
       and(
         eq(transactions.userId, userId),
-        isNotNull(accounts.externalAccountId),
+        inArray(transactions.accountId, accountIds),
         or(eq(transactions.type, "income"), eq(transactions.type, "expense"))
       )
     );
@@ -32,13 +43,14 @@ async function pairTransfers(userId: number): Promise<number> {
 
     const txDate = new Date(tx.date).getTime();
     const txAmount = parseFloat(String(tx.amount));
+    const txCurrency = currencyByAccountId[tx.accountId];
 
     const match = candidates.find(
       (other) =>
         !toMark.has(other.id) &&
         other.type === "income" &&
         other.accountId !== tx.accountId &&
-        other.currency === tx.currency &&
+        currencyByAccountId[other.accountId] === txCurrency &&
         parseFloat(String(other.amount)) === txAmount &&
         Math.abs(new Date(other.date).getTime() - txDate) <= 24 * 60 * 60 * 1000
     );
@@ -52,7 +64,8 @@ async function pairTransfers(userId: number): Promise<number> {
   if (toMark.size > 0) {
     await db
       .update(transactions)
-      .set({ type: "transfer", categoryId: null })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .set({ type: "transfer" as any, categoryId: null })
       .where(and(eq(transactions.userId, userId), inArray(transactions.id, [...toMark])));
   }
 
@@ -95,7 +108,8 @@ export async function POST(req: NextRequest) {
 
     await db
       .update(accounts)
-      .set({ balance: String(balance.current), currency: balance.currency })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .set({ balance: String(balance.current), currency: balance.currency } as any)
       .where(eq(accounts.id, accountId));
 
     // Find or create Uncategorized category
@@ -135,7 +149,8 @@ export async function POST(req: NextRequest) {
         accountId,
         description: tlTx.merchant_name || tlTx.description,
         amount: String(Math.abs(tlTx.amount)),
-        type: isTransfer ? "transfer" : isCredit ? "income" : "expense",
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        type: (isTransfer ? "transfer" : isCredit ? "income" : "expense") as any,
         categoryId: isTransfer ? null : uncategorizedId,
         date: new Date(tlTx.timestamp),
         externalId: tlTx.transaction_id,

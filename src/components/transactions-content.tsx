@@ -555,7 +555,7 @@ export function TransactionsContent() {
                       {group.label}
                     </span>
                   </div>
-                  <div className="divide-y divide-border/50">
+                  <div className="divide-y divide-border/70">
                     {group.items.map((tx) => {
                       const amount = parseFloat(tx.amount);
                       const isIncome = tx.type === "income";
@@ -563,10 +563,10 @@ export function TransactionsContent() {
                       return (
                         <div
                           key={tx.id}
-                          className="flex items-center gap-3 px-5 py-3.5 hover:bg-secondary/40 transition-colors group"
+                          className="flex items-center gap-3 px-3 sm:px-5 py-3.5 hover:bg-secondary/40 transition-colors group"
                         >
                           <div
-                            className="w-9 h-9 rounded-xl flex-shrink-0 flex items-center justify-center text-white text-base italic"
+                            className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex-shrink-0 flex items-center justify-center text-white text-base italic"
                             style={{ backgroundColor: tx.category?.color ?? "#6aada6", fontFamily: "var(--font-playfair)" }}
                           >
                             {tx.description.charAt(0).toUpperCase()}
@@ -659,7 +659,7 @@ export function TransactionsContent() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="opacity-0 group-hover:opacity-100 h-7 w-7 text-muted-foreground hover:text-primary transition-all"
+                              className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 h-7 w-7 text-muted-foreground hover:text-primary transition-all"
                               onClick={() => handleEditClick(tx)}
                             >
                               <Pencil className="w-3.5 h-3.5" />
@@ -667,7 +667,7 @@ export function TransactionsContent() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="opacity-0 group-hover:opacity-100 h-7 w-7 text-muted-foreground hover:text-rose-500 transition-all"
+                              className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 h-7 w-7 text-muted-foreground hover:text-rose-500 transition-all"
                               onClick={() => setDeleteId(tx.id)}
                             >
                               <Trash2 className="w-3.5 h-3.5" />

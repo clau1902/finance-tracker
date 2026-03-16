@@ -199,7 +199,7 @@ export function DashboardContent() {
       const color = colorFn ? colorFn(converted) : "text-foreground";
       return (
         <div>
-          <p className={`text-2xl font-semibold tabular-nums ${color}`}>
+          <p className={`text-base sm:text-2xl font-semibold tabular-nums ${color}`}>
             ≈ {formatCurrency(converted, c)}
           </p>
           {entries.length > 0 && (
@@ -216,7 +216,7 @@ export function DashboardContent() {
     }
 
     if (entries.length === 0)
-      return <span className="text-2xl font-semibold text-foreground">{formatCurrency(0, c)}</span>;
+      return <span className="text-base sm:text-2xl font-semibold text-foreground">{formatCurrency(0, c)}</span>;
 
     return (
       <div className="space-y-0.5">
@@ -224,7 +224,7 @@ export function DashboardContent() {
           <p
             key={cur}
             className={`font-semibold tabular-nums ${
-              i === 0 ? "text-2xl" : "text-sm text-muted-foreground"
+              i === 0 ? "text-base sm:text-2xl" : "text-xs text-muted-foreground"
             } ${colorFn ? colorFn(val) : "text-foreground"}`}
           >
             {formatCurrency(val, cur)}
@@ -277,16 +277,16 @@ export function DashboardContent() {
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
         {/* Total Balance */}
         <Card className="border-border/60 shadow-sm">
-          <CardContent className="p-5">
-            <div className="flex items-start justify-between">
+          <CardContent className="p-3 sm:p-5">
+            <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Balance</p>
                 <div className="mt-1">
                   <CardValue map={data.balanceByCurrency} converted={data.convertedTotalBalance} />
                 </div>
               </div>
-              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <Wallet className="w-5 h-5 text-primary" />
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <Wallet className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
               </div>
             </div>
           </CardContent>
@@ -294,8 +294,8 @@ export function DashboardContent() {
 
         {/* Monthly Income */}
         <Card className="border-border/60 shadow-sm">
-          <CardContent className="p-5">
-            <div className="flex items-start justify-between">
+          <CardContent className="p-3 sm:p-5">
+            <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Monthly Income</p>
                 <div className="mt-1">
@@ -307,8 +307,8 @@ export function DashboardContent() {
                   </p>
                 )}
               </div>
-              <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
-                <TrendingUp className="w-5 h-5 text-emerald-600" />
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600" />
               </div>
             </div>
           </CardContent>
@@ -316,8 +316,8 @@ export function DashboardContent() {
 
         {/* Monthly Expenses */}
         <Card className="border-border/60 shadow-sm">
-          <CardContent className="p-5">
-            <div className="flex items-start justify-between">
+          <CardContent className="p-3 sm:p-5">
+            <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Monthly Expenses</p>
                 <div className="mt-1">
@@ -329,8 +329,8 @@ export function DashboardContent() {
                   </p>
                 )}
               </div>
-              <div className="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center flex-shrink-0">
-                <TrendingDown className="w-5 h-5 text-rose-500" />
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-rose-100 flex items-center justify-center flex-shrink-0">
+                <TrendingDown className="w-4 h-4 sm:w-5 sm:h-5 text-rose-500" />
               </div>
             </div>
           </CardContent>
@@ -338,8 +338,8 @@ export function DashboardContent() {
 
         {/* Net Savings */}
         <Card className="border-border/60 shadow-sm">
-          <CardContent className="p-5">
-            <div className="flex items-start justify-between">
+          <CardContent className="p-3 sm:p-5">
+            <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Net Savings</p>
                 <div className="mt-1">
@@ -355,8 +355,8 @@ export function DashboardContent() {
                   </p>
                 )}
               </div>
-              <div className={`w-10 h-10 rounded-xl ${primarySavings >= 0 ? "bg-teal-100" : "bg-rose-100"} flex items-center justify-center flex-shrink-0`}>
-                <PiggyBank className={`w-5 h-5 ${primarySavings >= 0 ? "text-teal-600" : "text-rose-500"}`} />
+              <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl ${primarySavings >= 0 ? "bg-teal-100" : "bg-rose-100"} flex items-center justify-center flex-shrink-0`}>
+                <PiggyBank className={`w-4 h-4 sm:w-5 sm:h-5 ${primarySavings >= 0 ? "text-teal-600" : "text-rose-500"}`} />
               </div>
             </div>
           </CardContent>
