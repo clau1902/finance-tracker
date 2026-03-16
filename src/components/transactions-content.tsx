@@ -299,16 +299,16 @@ export function TransactionsContent() {
   return (
     <div className="p-6 space-y-5">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Transactions</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             {filtered.length} transaction{filtered.length !== 1 ? "s" : ""}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {filtered.length > 0 && (
-            <Button variant="outline" size="sm" onClick={exportCsv} className="gap-1.5">
+            <Button variant="outline" size="sm" onClick={exportCsv} className="gap-1.5 flex-1 sm:flex-none justify-center">
               <Download className="w-3.5 h-3.5" />
               Export
             </Button>
@@ -578,7 +578,7 @@ export function TransactionsContent() {
                                 {tx.notes}
                               </p>
                             )}
-                            <div className="flex items-center gap-1.5 mt-0.5">
+                            <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                   <button className="flex items-center gap-0.5 group/cat">
@@ -638,7 +638,7 @@ export function TransactionsContent() {
                                   )}
                                 </DropdownMenuContent>
                               </DropdownMenu>
-                              <span className="text-xs text-muted-foreground">
+                              <span className="text-xs text-muted-foreground min-w-0 truncate flex-1">
                                 {tx.account?.name} · {formatDate(tx.date)}
                               </span>
                             </div>
@@ -659,7 +659,7 @@ export function TransactionsContent() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 h-7 w-7 text-muted-foreground hover:text-primary transition-all"
+                              className="hidden sm:inline-flex opacity-0 group-hover:opacity-100 h-7 w-7 text-muted-foreground hover:text-primary transition-all"
                               onClick={() => handleEditClick(tx)}
                             >
                               <Pencil className="w-3.5 h-3.5" />

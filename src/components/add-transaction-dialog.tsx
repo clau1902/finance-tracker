@@ -148,7 +148,7 @@ export function AddTransactionDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {trigger ?? (
-          <Button className="gap-2">
+          <Button className="gap-2 flex-1 sm:flex-none justify-center">
             {isEditing ? (
               <>
                 <Pencil className="w-4 h-4" />

@@ -276,20 +276,20 @@ export function AccountsContent() {
   return (
     <div className="p-6 space-y-5">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Accounts</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             {accounts.length} account{accounts.length !== 1 ? "s" : ""}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <ConnectBankButton variant="outline" className="gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <ConnectBankButton variant="outline" className="gap-2 flex-1 sm:flex-none justify-center">
             Connect Bank
           </ConnectBankButton>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="gap-2">
+            <Button className="gap-2 flex-1 sm:flex-none justify-center">
               <Plus className="w-4 h-4" />
               Add Manually
             </Button>
